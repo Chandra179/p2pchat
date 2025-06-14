@@ -152,8 +152,3 @@ func SendPrivateMessage(p protocol.ID, h host.Host, priv crypto.PrivKey, peerID 
 	_, err = stream.Write(data)
 	return err
 }
-
-func copyWithLeftPad(dst, src []byte) {
-	start := len(dst) - len(src)
-	copy(dst[start:], src)
-}
