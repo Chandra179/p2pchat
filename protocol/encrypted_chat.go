@@ -3,20 +3,21 @@ package protocol
 import (
 	"bufio"
 	"context"
-	"crypto/ecdh"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/sha256"
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/sha512"
 	"encoding/json"
 	"errors"
 	"fmt"
 
+	"filippo.io/edwards25519"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"golang.org/x/crypto/chacha20poly1305"
+	"golang.org/x/crypto/curve25519"
 )
 
 type EncryptedMessage struct {
@@ -25,43 +26,22 @@ type EncryptedMessage struct {
 	Payload []byte `json:"payload"`
 }
 
-func deriveP256ECDHSharedKey(priv crypto.PrivKey, pub crypto.PubKey) ([]byte, error) {
-	privStd, err := crypto.PrivKeyToStdKey(priv)
+func deriveSharedKey(priv crypto.PrivKey, pub crypto.PubKey) ([]byte, error) {
+	sPriv, err := privToX25519(priv)
 	if err != nil {
 		return nil, err
 	}
-	pubStd, err := crypto.PubKeyToStdKey(pub)
-	if err != nil {
-		return nil, err
-	}
-
-	privKey, ok1 := privStd.(*ecdsa.PrivateKey)
-	pubKey, ok2 := pubStd.(*ecdsa.PublicKey)
-	if !ok1 || !ok2 {
-		return nil, errors.New("only ECDSA keys are supported")
-	}
-
-	curve := ecdh.P256()
-
-	// Construct ECDH private key
-	privKeyECDH, err := curve.NewPrivateKey(privKey.D.Bytes())
+	rPub, err := pubToX25519(pub)
 	if err != nil {
 		return nil, err
 	}
 
-	// Construct ECDH public key
-	pubKeyECDH, err := curve.NewPublicKey(elliptic.Marshal(pubKey.Curve, pubKey.X, pubKey.Y))
+	shared, err := curve25519.X25519(sPriv[:], rPub[:])
 	if err != nil {
 		return nil, err
 	}
 
-	sharedSecret, err := privKeyECDH.ECDH(pubKeyECDH)
-	if err != nil {
-		return nil, err
-	}
-
-	hash := sha256.Sum256(sharedSecret)
-	return hash[:], nil
+	return shared, nil
 }
 
 // --- Symmetric AEAD encryption ---
@@ -70,8 +50,13 @@ func encrypt(sharedKey, plaintext []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	nonce := make([]byte, aead.NonceSize()) // empty = deterministic for demo; use rand in prod
-	return aead.Seal(nonce, nonce, plaintext, nil), nil
+	nonce := make([]byte, aead.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		return nil, err
+	}
+
+	ciphertext := aead.Seal(nil, nonce, plaintext, nil)
+	return append(nonce, ciphertext...), nil // prepend nonce to ciphertext
 }
 
 func decrypt(sharedKey, ciphertext []byte) ([]byte, error) {
@@ -84,7 +69,9 @@ func decrypt(sharedKey, ciphertext []byte) ([]byte, error) {
 		return nil, fmt.Errorf("ciphertext too short")
 	}
 	nonce := ciphertext[:nonceSize]
-	return aead.Open(nil, nonce, ciphertext[nonceSize:], nil)
+	ciphertext = ciphertext[nonceSize:]
+
+	return aead.Open(nil, nonce, ciphertext, nil)
 }
 
 // --- Stream handler ---
@@ -104,7 +91,7 @@ func HandlePrivateMessage(stream network.Stream, priv crypto.PrivKey) {
 		return
 	}
 
-	sharedKey, err := deriveP256ECDHSharedKey(priv, peerPub)
+	sharedKey, err := deriveSharedKey(priv, peerPub)
 	if err != nil {
 		fmt.Println("shared key failed:", err)
 		return
@@ -132,7 +119,7 @@ func SendPrivateMessage(p protocol.ID, h host.Host, priv crypto.PrivKey, peerID 
 		return fmt.Errorf("no pubkey for peer %s", peerID)
 	}
 
-	sharedKey, err := deriveP256ECDHSharedKey(priv, pub)
+	sharedKey, err := deriveSharedKey(priv, pub)
 	if err != nil {
 		return err
 	}
@@ -148,7 +135,49 @@ func SendPrivateMessage(p protocol.ID, h host.Host, priv crypto.PrivKey, peerID 
 		Payload: ciphertext,
 	}
 
-	data, _ := json.Marshal(msg)
-	_, err = stream.Write(data)
-	return err
+	encoder := json.NewEncoder(stream)
+	return encoder.Encode(msg)
+}
+
+func privToX25519(priv crypto.PrivKey) ([32]byte, error) {
+	var xpriv [32]byte
+
+	// Extract raw Ed25519 private key
+	raw, err := priv.Raw()
+	if err != nil {
+		return xpriv, err
+	}
+	if len(raw) != 64 {
+		return xpriv, errors.New("invalid ed25519 private key length")
+	}
+
+	// First 32 bytes of raw is the private seed
+	h := sha512.Sum512(raw[:32])
+	h[0] &= 248
+	h[31] &= 127
+	h[31] |= 64
+	copy(xpriv[:], h[:32]) // X25519 private scalar
+
+	return xpriv, nil
+}
+
+func pubToX25519(pub crypto.PubKey) ([32]byte, error) {
+	var xpub [32]byte
+
+	raw, err := pub.Raw()
+	if err != nil {
+		return xpub, err
+	}
+	if len(raw) != ed25519.PublicKeySize {
+		return xpub, errors.New("invalid ed25519 pubkey length")
+	}
+
+	var A edwards25519.Point
+	if _, err := A.SetBytes(raw); err != nil {
+		return xpub, err
+	}
+	A.MultByCofactor(&A)
+	copy(xpub[:], A.BytesMontgomery())
+
+	return xpub, nil
 }
