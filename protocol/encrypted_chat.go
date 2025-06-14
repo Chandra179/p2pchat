@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"filippo.io/edwards25519"
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -24,6 +25,11 @@ type EncryptedMessage struct {
 	From    string `json:"from"`
 	To      string `json:"to"`
 	Payload []byte `json:"payload"`
+}
+
+// --- ACK struct ---
+type AckMessage struct {
+	Status string `json:"status"`
 }
 
 func deriveSharedKey(priv crypto.PrivKey, pub crypto.PubKey) ([]byte, error) {
@@ -44,7 +50,6 @@ func deriveSharedKey(priv crypto.PrivKey, pub crypto.PubKey) ([]byte, error) {
 	return shared, nil
 }
 
-// --- Symmetric AEAD encryption ---
 func encrypt(sharedKey, plaintext []byte) ([]byte, error) {
 	aead, err := chacha20poly1305.NewX(sharedKey)
 	if err != nil {
@@ -104,6 +109,14 @@ func HandlePrivateMessage(stream network.Stream, priv crypto.PrivKey) {
 	}
 
 	fmt.Printf("[Private] %s: %s\n", msg.From, string(plaintext))
+
+	// Send ACK back to sender
+	ack := AckMessage{Status: "ok"}
+	encoder := json.NewEncoder(stream)
+	err = encoder.Encode(ack)
+	if err != nil {
+		fmt.Println("failed to send ACK:", err)
+	}
 }
 
 // --- Send message ---
@@ -136,7 +149,36 @@ func SendPrivateMessage(p protocol.ID, h host.Host, priv crypto.PrivKey, peerID 
 	}
 
 	encoder := json.NewEncoder(stream)
-	return encoder.Encode(msg)
+	err = encoder.Encode(msg)
+	if err != nil {
+		return err
+	}
+
+	// Wait for ACK with timeout
+	ackCh := make(chan AckMessage, 1)
+	errCh := make(chan error, 1)
+	go func() {
+		var ack AckMessage
+		dec := json.NewDecoder(bufio.NewReader(stream))
+		if err := dec.Decode(&ack); err != nil {
+			errCh <- err
+			return
+		}
+		ackCh <- ack
+	}()
+
+	select {
+	case ack := <-ackCh:
+		if ack.Status != "ok" {
+			return fmt.Errorf("received non-ok ACK: %s", ack.Status)
+		}
+		fmt.Println("[ACK] Received ACK from receiver")
+		return nil
+	case err := <-errCh:
+		return fmt.Errorf("failed to receive ACK: %w", err)
+	case <-time.After(3 * time.Second):
+		return fmt.Errorf("timeout waiting for ACK")
+	}
 }
 
 func privToX25519(priv crypto.PrivKey) ([32]byte, error) {
