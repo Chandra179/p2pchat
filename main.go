@@ -3,24 +3,34 @@ package main
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"log"
 	"os"
 
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/multiformats/go-multiaddr"
+
 	"p2p/node"
-	"p2p/pubsub"
+	"p2p/protocol"
 )
+
+const PrivateProtocolID = "/p2p-chat/1.0.0-private"
 
 func main() {
 	ctx := context.Background()
-
-	p2pNode, err := node.NewP2PNode(ctx)
+	node, err := node.NewP2PNode(ctx)
 	if err != nil {
 		panic(err)
 	}
-	p2pNode.Info()
-	// p2pNode.SetStreamHandler(protocol.ProtocolID, protocol.ChatStreamHandler)
+	node.Info()
+	RunPrivateChat(ctx, node)
 
-	pubsubService, err := pubsub.NewPubSubService(ctx, p2pNode.Host)
+	select {}
+}
+
+func RunPubSub(ctx context.Context, node *node.P2PNode) {
+	pubsubService, err := protocol.NewPubSubService(ctx, node.Host)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -35,18 +45,54 @@ func main() {
 		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
 			text := scanner.Text()
-			pubsubService.Publish(topicName, []byte(text))
+			msg := protocol.NewChatMessage(node.Host.ID().String(), text)
+			err := msg.Sign(node.Host.Peerstore().PrivKey(node.Host.ID()))
+			if err != nil {
+				log.Println("Failed to sign message:", err)
+				return
+			}
+			data, _ := msg.Marshal()
+			pubsubService.Publish(topicName, data)
 		}
 	}()
+}
 
-	// if len(os.Args) > 1 {
-	// 	// Dial a peer
-	// 	addr, _ := multiaddr.NewMultiaddr(os.Args[1])
-	// 	pi, _ := peer.AddrInfoFromP2pAddr(addr)
-	// 	p2pNode.Host.Connect(ctx, *pi)
-	// 	s, _ := p2pNode.Host.NewStream(ctx, pi.ID, protocol.ProtocolID)
-	// 	protocol.ChatStreamHandler(s)
-	// }
+func RunSimpleChat(ctx context.Context, node *node.P2PNode) {
+	node.SetStreamHandler(protocol.ProtocolID, protocol.ChatStreamHandler)
 
-	select {}
+	if len(os.Args) > 1 {
+		// Dial a peer
+		addr, _ := multiaddr.NewMultiaddr(os.Args[1])
+		pi, _ := peer.AddrInfoFromP2pAddr(addr)
+		node.Host.Connect(ctx, *pi)
+		s, _ := node.Host.NewStream(ctx, pi.ID, protocol.ProtocolID)
+		protocol.ChatStreamHandler(s)
+	}
+}
+
+func RunPrivateChat(ctx context.Context, node *node.P2PNode) {
+	node.SetStreamHandler(PrivateProtocolID, func(s network.Stream) {
+		protocol.HandlePrivateMessage(s, node.PrivateKey)
+	})
+
+	go func() {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			text := scanner.Text()
+
+			// Get connected peers
+			peers := node.Host.Network().Peers()
+			if len(peers) == 0 {
+				fmt.Println("❌ No peers connected.")
+				continue
+			}
+			// Send to first connected peer
+			targetPeer := peers[0]
+
+			err := protocol.SendPrivateMessage(PrivateProtocolID, node.Host, node.PrivateKey, targetPeer, text)
+			if err != nil {
+				fmt.Println("❌ Failed to send:", err)
+			}
+		}
+	}()
 }

@@ -40,3 +40,14 @@ func writeLoop(rw *bufio.ReadWriter) {
 		}
 	}
 }
+
+// p2pNode.SetStreamHandler(protocol.ProtocolID, protocol.ChatStreamHandler)
+
+// if len(os.Args) > 1 {
+// 	// Dial a peer
+// 	addr, _ := multiaddr.NewMultiaddr(os.Args[1])
+// 	pi, _ := peer.AddrInfoFromP2pAddr(addr)
+// 	p2pNode.Host.Connect(ctx, *pi)
+// 	s, _ := p2pNode.Host.NewStream(ctx, pi.ID, protocol.ProtocolID)
+// 	protocol.ChatStreamHandler(s)
+// }

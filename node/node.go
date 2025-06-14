@@ -2,9 +2,12 @@ package node
 
 import (
 	"context"
+	"crypto/elliptic"
+	"crypto/rand"
 	"fmt"
 
 	libp2p "github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p/core/crypto"
 	host "github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -13,19 +16,25 @@ import (
 )
 
 type P2PNode struct {
-	Host host.Host
-	Ctx  context.Context
+	Host       host.Host
+	Ctx        context.Context
+	PrivateKey crypto.PrivKey
 }
 
 func NewP2PNode(ctx context.Context) (*P2PNode, error) {
-	h, err := libp2p.New()
+	priv, _, err := crypto.GenerateECDSAKeyPairWithCurve(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+	h, err := libp2p.New(libp2p.Identity(priv))
 	if err != nil {
 		return nil, err
 	}
 
 	node := &P2PNode{
-		Host: h,
-		Ctx:  ctx,
+		Host:       h,
+		Ctx:        ctx,
+		PrivateKey: priv,
 	}
 
 	// mDNS discovery
