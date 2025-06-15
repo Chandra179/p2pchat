@@ -1,3 +1,4 @@
+// cryptoutils/x25519_chacha_crypto.go
 package cryptoutils
 
 import (
@@ -10,27 +11,7 @@ import (
 	"filippo.io/edwards25519"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"golang.org/x/crypto/chacha20poly1305"
-	"golang.org/x/crypto/curve25519"
 )
-
-// X25519DeriveSharedKey computes a shared key using X25519 from libp2p keys.
-func X25519DeriveSharedKey(priv crypto.PrivKey, pub crypto.PubKey) ([]byte, error) {
-	sPriv, err := PrivToX25519(priv)
-	if err != nil {
-		return nil, err
-	}
-	rPub, err := PubToX25519(pub)
-	if err != nil {
-		return nil, err
-	}
-
-	shared, err := curve25519.X25519(sPriv[:], rPub[:])
-	if err != nil {
-		return nil, err
-	}
-
-	return shared, nil
-}
 
 // X25519ChaChaEncrypt encrypts plaintext using the shared key and ChaCha20-Poly1305.
 func X25519ChaChaEncrypt(sharedKey, plaintext []byte) ([]byte, error) {

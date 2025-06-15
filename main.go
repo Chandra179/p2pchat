@@ -1,3 +1,4 @@
+// main.go
 package main
 
 import (
@@ -6,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -15,7 +17,7 @@ import (
 	"p2p/protocol"
 )
 
-const PrivateProtocolID = "/p2p-chat/1.0.0-private"
+const PrivateProtocolID = "/p2p-chat/1.0.0-private-ephemeral"
 
 func main() {
 	ctx := context.Background()
@@ -23,9 +25,17 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	node.Info()
-	RunPrivateChat(ctx, node)
 
+	node.Info()
+	fmt.Println("🔐 Starting encrypted P2P chat with ephemeral session keys...")
+	fmt.Println("📝 Commands:")
+	fmt.Println("  - Type messages to send to connected peers")
+	fmt.Println("  - '/connect <multiaddr>' to connect to a peer")
+	fmt.Println("  - '/peers' to list connected peers")
+	fmt.Println("  - '/quit' to exit")
+	fmt.Println()
+
+	RunPrivateChat(ctx, node)
 	select {}
 }
 
@@ -71,28 +81,101 @@ func RunSimpleChat(ctx context.Context, node *node.P2PNode) {
 }
 
 func RunPrivateChat(ctx context.Context, node *node.P2PNode) {
+	// Set up the stream handler for encrypted messages
 	node.SetStreamHandler(PrivateProtocolID, func(s network.Stream) {
 		protocol.HandlePrivateMessage(s, node.PrivateKey)
 	})
 
+	// Handle user input
 	go func() {
 		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
-			text := scanner.Text()
+			text := strings.TrimSpace(scanner.Text())
 
-			// Get connected peers
-			peers := node.Host.Network().Peers()
-			if len(peers) == 0 {
-				fmt.Println("❌ No peers connected.")
+			if text == "" {
 				continue
 			}
-			// Send to first connected peer
-			targetPeer := peers[0]
 
-			err := protocol.SendPrivateMessage(PrivateProtocolID, node.Host, node.PrivateKey, targetPeer, text)
-			if err != nil {
-				fmt.Println("❌ Failed to send:", err)
+			// Handle commands
+			if strings.HasPrefix(text, "/") {
+				handleCommand(ctx, node, text)
+				continue
+			}
+
+			// Send message to connected peers
+			peers := node.Host.Network().Peers()
+			if len(peers) == 0 {
+				fmt.Println("❌ No peers connected. Use '/connect <multiaddr>' to connect to a peer.")
+				continue
+			}
+
+			// Send to all connected peers
+			for _, targetPeer := range peers {
+				go func(peerID peer.ID) {
+					err := protocol.SendPrivateMessage(PrivateProtocolID, node.Host, node.PrivateKey, peerID, text)
+					if err != nil {
+						fmt.Printf("❌ Failed to send to %s: %v\n", peerID.String()[:8], err)
+					}
+				}(targetPeer)
 			}
 		}
 	}()
+}
+
+func handleCommand(ctx context.Context, node *node.P2PNode, command string) {
+	parts := strings.Fields(command)
+	if len(parts) == 0 {
+		return
+	}
+
+	switch parts[0] {
+	case "/connect":
+		if len(parts) < 2 {
+			fmt.Println("❌ Usage: /connect <multiaddr>")
+			return
+		}
+
+		addr, err := multiaddr.NewMultiaddr(parts[1])
+		if err != nil {
+			fmt.Printf("❌ Invalid multiaddr: %v\n", err)
+			return
+		}
+
+		pi, err := peer.AddrInfoFromP2pAddr(addr)
+		if err != nil {
+			fmt.Printf("❌ Failed to parse peer info: %v\n", err)
+			return
+		}
+
+		fmt.Printf("🔄 Connecting to %s...\n", pi.ID.String()[:8])
+		if err := node.Host.Connect(ctx, *pi); err != nil {
+			fmt.Printf("❌ Failed to connect: %v\n", err)
+			return
+		}
+
+		fmt.Printf("✅ Connected to %s\n", pi.ID.String()[:8])
+
+	case "/peers":
+		peers := node.Host.Network().Peers()
+		if len(peers) == 0 {
+			fmt.Println("📭 No peers connected")
+			return
+		}
+
+		fmt.Printf("👥 Connected peers (%d):\n", len(peers))
+		for i, peerID := range peers {
+			fmt.Printf("  %d. %s\n", i+1, peerID.String()[:8])
+		}
+
+	case "/quit":
+		fmt.Println("👋 Goodbye!")
+		os.Exit(0)
+
+	default:
+		fmt.Printf("❌ Unknown command: %s\n", parts[0])
+		fmt.Println("📝 Available commands:")
+		fmt.Println("  - /connect <multiaddr>")
+		fmt.Println("  - /peers")
+		fmt.Println("  - /quit")
+	}
 }
