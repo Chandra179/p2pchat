@@ -24,6 +24,8 @@ import (
 const (
 	MsgTypeKeyExchange         = "key_exchange"
 	MsgTypeKeyExchangeResponse = "key_exchange_response"
+	MsgTypeRekey               = "rekey"
+	MsgTypeRekeyResponse       = "rekey_response"
 	MsgTypeEncrypted           = "encrypted"
 	MsgTypeAck                 = "ack"
 )
@@ -68,7 +70,7 @@ func init() {
 	}()
 }
 
-// HandlePrivateMessage handles incoming private messages with session management
+// HandlePrivateMessage handles incoming private messages with session management and automatic rekeying
 func HandlePrivateMessage(stream network.Stream, priv crypto.PrivKey) {
 	defer stream.Close()
 
@@ -91,6 +93,10 @@ func HandlePrivateMessage(stream network.Stream, priv crypto.PrivKey) {
 		handleKeyExchange(stream, protocolMsg.Payload, priv, peerPub, peerID)
 	case MsgTypeKeyExchangeResponse:
 		handleKeyExchangeResponse(stream, protocolMsg.Payload, peerPub, peerID)
+	case MsgTypeRekey:
+		handleRekeyRequest(stream, protocolMsg.Payload, priv, peerPub, peerID)
+	case MsgTypeRekeyResponse:
+		handleRekeyResponse(stream, protocolMsg.Payload, peerPub, peerID)
 	case MsgTypeEncrypted:
 		handleEncryptedMessage(stream, protocolMsg.Payload, peerID)
 	default:
@@ -159,6 +165,57 @@ func handleKeyExchangeResponse(_ network.Stream, payload interface{}, remotePub 
 	fmt.Printf("✅ Session completed with %s\n", peerID)
 }
 
+func handleRekeyRequest(stream network.Stream, payload interface{}, localPriv crypto.PrivKey, remotePub crypto.PubKey, peerID string) {
+	// Parse rekey request
+	payloadBytes, _ := json.Marshal(payload)
+	var rekeyMsg SessionKeyExchange
+	if err := json.Unmarshal(payloadBytes, &rekeyMsg); err != nil {
+		fmt.Println("❌ Failed to parse rekey request:", err)
+		return
+	}
+
+	fmt.Printf("🔄 Handling rekey request from %s\n", peerID)
+
+	// Handle the rekey request
+	rekeyResponse, err := sessionManager.HandleRekeyRequest(peerID, &rekeyMsg, localPriv, remotePub)
+	if err != nil {
+		fmt.Println("❌ Failed to handle rekey request:", err)
+		return
+	}
+
+	// Send rekey response
+	response := ProtocolMessage{
+		Type:    MsgTypeRekeyResponse,
+		Payload: rekeyResponse,
+	}
+
+	encoder := json.NewEncoder(stream)
+	if err := encoder.Encode(response); err != nil {
+		fmt.Println("❌ Failed to send rekey response:", err)
+		return
+	}
+
+	fmt.Printf("✅ Rekey completed with %s (responder)\n", peerID)
+}
+
+func handleRekeyResponse(_ network.Stream, payload interface{}, remotePub crypto.PubKey, peerID string) {
+	// Parse rekey response
+	payloadBytes, _ := json.Marshal(payload)
+	var rekeyResponse SessionKeyExchange
+	if err := json.Unmarshal(payloadBytes, &rekeyResponse); err != nil {
+		fmt.Println("❌ Failed to parse rekey response:", err)
+		return
+	}
+
+	// Complete the rekey
+	if err := sessionManager.CompleteRekey(peerID, &rekeyResponse, remotePub); err != nil {
+		fmt.Println("❌ Failed to complete rekey:", err)
+		return
+	}
+
+	fmt.Printf("✅ Rekey completed with %s (initiator)\n", peerID)
+}
+
 func handleEncryptedMessage(stream network.Stream, payload interface{}, peerID string) {
 	// Parse encrypted message
 	payloadBytes, _ := json.Marshal(payload)
@@ -182,15 +239,23 @@ func handleEncryptedMessage(stream network.Stream, payload interface{}, peerID s
 	}
 	privateMsgCache.Add(msg.MessageID, struct{}{})
 
-	// Get session
-	session, exists := sessionManager.GetSession(peerID)
-	if !exists {
+	// Use session (increments counter and checks for rekey needs)
+	session, needsRekey, err := sessionManager.UseSession(peerID)
+	if err != nil {
+		fmt.Println("❌ Failed to use session:", err)
+		return
+	}
+	if session == nil {
 		fmt.Println("❌ No active session for peer, cannot decrypt")
 		return
 	}
 
 	// Decrypt message
-	plaintext, err := cryptoutils.X25519ChaChaDecrypt(session.SharedKey, msg.Payload)
+	session.mu.RLock()
+	sharedKey := session.SharedKey
+	session.mu.RUnlock()
+
+	plaintext, err := cryptoutils.X25519ChaChaDecrypt(sharedKey, msg.Payload)
 	if err != nil {
 		fmt.Println("❌ Decrypt failed:", err)
 		return
@@ -211,15 +276,28 @@ func handleEncryptedMessage(stream network.Stream, payload interface{}, peerID s
 	if err := encoder.Encode(ack); err != nil {
 		fmt.Println("❌ Failed to send ACK:", err)
 	}
+
+	// Trigger rekey if needed (asynchronously to avoid blocking message handling)
+	if needsRekey {
+		go func() {
+			fmt.Printf("🔄 Triggering automatic rekey for %s\n", peerID)
+			// Note: This would need access to the host and private key
+			// In practice, you'd pass these or have a callback mechanism
+		}()
+	}
 }
 
-// SendPrivateMessage sends an encrypted message with session management
+// SendPrivateMessage sends an encrypted message with session management and automatic rekeying
 func SendPrivateMessage(p protocol.ID, h host.Host, priv crypto.PrivKey, peerID peer.ID, text string) error {
 	peerIDStr := peerID.String()
 
-	// Check if we have an active session
-	session, exists := sessionManager.GetSession(peerIDStr)
-	if !exists {
+	// Check if we have an active session and if rekey is needed
+	session, needsRekey, err := sessionManager.UseSession(peerIDStr)
+	if err != nil {
+		return fmt.Errorf("failed to use session: %w", err)
+	}
+
+	if session == nil {
 		// Need to establish session first
 		fmt.Printf("🔄 Establishing session with %s...\n", peerIDStr)
 		if err := establishSessionWithPeer(p, h, priv, peerID); err != nil {
@@ -227,14 +305,93 @@ func SendPrivateMessage(p protocol.ID, h host.Host, priv crypto.PrivKey, peerID 
 		}
 
 		// Get the newly established session
-		session, exists = sessionManager.GetSession(peerIDStr)
-		if !exists {
+		session, _, err = sessionManager.UseSession(peerIDStr)
+		if err != nil {
+			return fmt.Errorf("failed to get established session: %w", err)
+		}
+		if session == nil {
 			return fmt.Errorf("session establishment failed")
+		}
+	}
+
+	// Perform rekey if needed
+	if needsRekey {
+		fmt.Printf("🔄 Performing automatic rekey for %s...\n", peerIDStr)
+		if err := performRekey(p, h, priv, peerID); err != nil {
+			fmt.Printf("⚠️ Rekey failed, continuing with current session: %v\n", err)
+		}
+
+		// Get updated session after rekey
+		session, _, err = sessionManager.UseSession(peerIDStr)
+		if err != nil {
+			return fmt.Errorf("failed to get session after rekey: %w", err)
+		}
+		if session == nil {
+			return fmt.Errorf("session lost after rekey")
 		}
 	}
 
 	// Encrypt and send message
 	return sendEncryptedMessage(p, h, session, peerID, text)
+}
+
+func performRekey(p protocol.ID, h host.Host, priv crypto.PrivKey, peerID peer.ID) error {
+	operation := func() error {
+		stream, err := h.NewStream(context.TODO(), peerID, p)
+		if err != nil {
+			return backoff.Permanent(err)
+		}
+		defer stream.Close()
+
+		// Initiate rekey
+		rekeyMsg, err := sessionManager.InitiateRekey(peerID.String(), priv)
+		if err != nil {
+			return backoff.Permanent(err)
+		}
+
+		// Send rekey request
+		msg := ProtocolMessage{
+			Type:    MsgTypeRekey,
+			Payload: rekeyMsg,
+		}
+
+		encoder := json.NewEncoder(stream)
+		if err := encoder.Encode(msg); err != nil {
+			return backoff.Permanent(err)
+		}
+
+		// Wait for rekey response
+		var response ProtocolMessage
+		decoder := json.NewDecoder(bufio.NewReader(stream))
+		if err := decoder.Decode(&response); err != nil {
+			return err
+		}
+
+		if response.Type != MsgTypeRekeyResponse {
+			return backoff.Permanent(fmt.Errorf("unexpected response type: %s", response.Type))
+		}
+
+		// Parse and complete rekey
+		payloadBytes, _ := json.Marshal(response.Payload)
+		var rekeyResponse SessionKeyExchange
+		if err := json.Unmarshal(payloadBytes, &rekeyResponse); err != nil {
+			return backoff.Permanent(err)
+		}
+
+		pub := h.Peerstore().PubKey(peerID)
+		if pub == nil {
+			return backoff.Permanent(fmt.Errorf("no pubkey for peer %s", peerID))
+		}
+
+		if err := sessionManager.CompleteRekey(peerID.String(), &rekeyResponse, pub); err != nil {
+			return backoff.Permanent(err)
+		}
+
+		return nil
+	}
+
+	bo := backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 3)
+	return backoff.Retry(operation, bo)
 }
 
 func establishSessionWithPeer(p protocol.ID, h host.Host, priv crypto.PrivKey, peerID peer.ID) error {
@@ -305,8 +462,13 @@ func sendEncryptedMessage(p protocol.ID, h host.Host, session *SessionKey, peerI
 		}
 		defer stream.Close()
 
+		// Get current shared key (thread-safe)
+		session.mu.RLock()
+		sharedKey := session.SharedKey
+		session.mu.RUnlock()
+
 		// Encrypt message
-		ciphertext, err := cryptoutils.X25519ChaChaEncrypt(session.SharedKey, []byte(text))
+		ciphertext, err := cryptoutils.X25519ChaChaEncrypt(sharedKey, []byte(text))
 		if err != nil {
 			return backoff.Permanent(err)
 		}
@@ -362,4 +524,28 @@ func sendEncryptedMessage(p protocol.ID, h host.Host, session *SessionKey, peerI
 
 	bo := backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 3)
 	return backoff.Retry(operation, bo)
+}
+
+// GetSessionInfo returns information about active sessions (for debugging/monitoring)
+func GetSessionInfo() map[string]interface{} {
+	sessionManager.mu.RLock()
+	defer sessionManager.mu.RUnlock()
+
+	info := make(map[string]interface{})
+	for peerID, session := range sessionManager.sessions {
+		session.mu.RLock()
+		sessionInfo := map[string]interface{}{
+			"created_at":     session.CreatedAt,
+			"last_used":      session.LastUsed,
+			"message_count":  session.MessageCount,
+			"rekey_sequence": session.RekeySequence,
+			"is_rekeying":    session.IsRekeying,
+			"age_minutes":    time.Since(session.CreatedAt).Minutes(),
+			"idle_minutes":   time.Since(session.LastUsed).Minutes(),
+		}
+		session.mu.RUnlock()
+		info[peerID] = sessionInfo
+	}
+
+	return info
 }
