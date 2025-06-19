@@ -1,4 +1,3 @@
-// protocol/encrypted_chat.go
 package protocol
 
 import (

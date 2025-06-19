@@ -22,20 +22,20 @@ const (
 
 // SessionKeyExchange represents the key exchange message
 type SessionKeyExchange struct {
-	EphemeralPubKey [32]byte  `json:"ephemeral_pub_key"`
-	Signature       []byte    `json:"signature"`
-	Timestamp       time.Time `json:"timestamp"`
-	PeerID          string    `json:"peer_id"`
-	IsRekey         bool      `json:"is_rekey"`       // Indicates if this is a rekey operation
-	RekeySequence   uint64    `json:"rekey_sequence"` // Sequence number for rekey operations
+	PubKey        [32]byte  `json:"pub_key"`
+	Signature     []byte    `json:"signature"`
+	Timestamp     time.Time `json:"timestamp"`
+	PeerID        string    `json:"peer_id"`
+	IsRekey       bool      `json:"is_rekey"`       // Indicates if this is a rekey operation
+	RekeySequence uint64    `json:"rekey_sequence"` // Sequence number for rekey operations
 }
 
 // SessionKey holds the ephemeral session information
 type SessionKey struct {
 	// Current active key
-	SharedKey     []byte
-	EphemeralPriv [32]byte
-	EphemeralPub  [32]byte
+	SharedKey []byte
+	PrivKey   [32]byte
+	PubKey    [32]byte
 
 	// Session metadata
 	CreatedAt     time.Time
@@ -54,12 +54,12 @@ type SessionKey struct {
 
 // PendingRekey holds the state during a rekey operation
 type PendingRekey struct {
-	NewSharedKey     []byte
-	NewEphemeralPriv [32]byte
-	NewEphemeralPub  [32]byte
-	RekeySequence    uint64
-	InitiatedAt      time.Time
-	IsInitiator      bool
+	NewSharedKey  []byte
+	NewPriv       [32]byte
+	NewPub        [32]byte
+	RekeySequence uint64
+	InitiatedAt   time.Time
+	IsInitiator   bool
 }
 
 // SessionManager manages ephemeral session keys with automatic rekeying
@@ -89,11 +89,11 @@ func GenerateEphemeralKeyPair() ([32]byte, [32]byte, error) {
 // CreateKeyExchangeMessage creates a signed key exchange message
 func CreateKeyExchangeMessage(ephemeralPub [32]byte, identityPriv crypto.PrivKey, peerID string, isRekey bool, rekeySequence uint64) (*SessionKeyExchange, error) {
 	msg := &SessionKeyExchange{
-		EphemeralPubKey: ephemeralPub,
-		Timestamp:       time.Now(),
-		PeerID:          peerID,
-		IsRekey:         isRekey,
-		RekeySequence:   rekeySequence,
+		PubKey:        ephemeralPub,
+		Timestamp:     time.Now(),
+		PeerID:        peerID,
+		IsRekey:       isRekey,
+		RekeySequence: rekeySequence,
 	}
 
 	// Create signature data: ephemeral_pub_key || timestamp || peer_id || is_rekey || rekey_sequence
@@ -117,7 +117,7 @@ func VerifyKeyExchangeMessage(msg *SessionKeyExchange, identityPub crypto.PubKey
 	}
 
 	// Verify signature
-	sigData := append(msg.EphemeralPubKey[:], []byte(fmt.Sprintf("%d%s%t%d",
+	sigData := append(msg.PubKey[:], []byte(fmt.Sprintf("%d%s%t%d",
 		msg.Timestamp.Unix(), msg.PeerID, msg.IsRekey, msg.RekeySequence))...)
 
 	valid, err := identityPub.Verify(sigData, msg.Signature)
@@ -152,8 +152,8 @@ func (sm *SessionManager) InitiateSession(
 
 	now := time.Now()
 	session := &SessionKey{
-		EphemeralPriv: ephemeralPriv,
-		EphemeralPub:  ephemeralPub,
+		PrivKey:       ephemeralPriv,
+		PubKey:        ephemeralPub,
 		CreatedAt:     now,
 		LastUsed:      now,
 		PeerID:        peerID,
@@ -203,11 +203,11 @@ func (sm *SessionManager) InitiateRekey(
 	// Set up pending rekey state
 	session.IsRekeying = true
 	session.PendingKey = &PendingRekey{
-		NewEphemeralPriv: newEphemeralPriv,
-		NewEphemeralPub:  newEphemeralPub,
-		RekeySequence:    newRekeySequence,
-		InitiatedAt:      time.Now(),
-		IsInitiator:      true,
+		NewPriv:       newEphemeralPriv,
+		NewPub:        newEphemeralPub,
+		RekeySequence: newRekeySequence,
+		InitiatedAt:   time.Now(),
+		IsInitiator:   true,
 	}
 
 	return rekeyMsg, nil
@@ -254,7 +254,7 @@ func (sm *SessionManager) HandleRekeyRequest(
 	}
 
 	// Derive new shared secret
-	newSharedSecret, err := curve25519.X25519(newEphemeralPriv[:], rekeyMsg.EphemeralPubKey[:])
+	newSharedSecret, err := curve25519.X25519(newEphemeralPriv[:], rekeyMsg.PubKey[:])
 	if err != nil {
 		return nil, fmt.Errorf("ECDH failed during rekey: %w", err)
 	}
@@ -268,12 +268,12 @@ func (sm *SessionManager) HandleRekeyRequest(
 	// Set up pending rekey state
 	session.IsRekeying = true
 	session.PendingKey = &PendingRekey{
-		NewSharedKey:     newSharedSecret,
-		NewEphemeralPriv: newEphemeralPriv,
-		NewEphemeralPub:  newEphemeralPub,
-		RekeySequence:    rekeyMsg.RekeySequence,
-		InitiatedAt:      time.Now(),
-		IsInitiator:      false,
+		NewSharedKey:  newSharedSecret,
+		NewPriv:       newEphemeralPriv,
+		NewPub:        newEphemeralPub,
+		RekeySequence: rekeyMsg.RekeySequence,
+		InitiatedAt:   time.Now(),
+		IsInitiator:   false,
 	}
 
 	return rekeyResponse, nil
@@ -315,7 +315,7 @@ func (sm *SessionManager) CompleteRekey(
 
 	if session.PendingKey.IsInitiator {
 		// We initiated, so derive shared secret with their response
-		newSharedSecret, err = curve25519.X25519(session.PendingKey.NewEphemeralPriv[:], rekeyResponse.EphemeralPubKey[:])
+		newSharedSecret, err = curve25519.X25519(session.PendingKey.NewPriv[:], rekeyResponse.PubKey[:])
 		if err != nil {
 			return fmt.Errorf("ECDH failed during rekey completion: %w", err)
 		}
@@ -332,8 +332,8 @@ func (sm *SessionManager) CompleteRekey(
 
 	// Atomically switch to new key
 	session.SharedKey = newSharedSecret
-	session.EphemeralPriv = session.PendingKey.NewEphemeralPriv
-	session.EphemeralPub = session.PendingKey.NewEphemeralPub
+	session.PrivKey = session.PendingKey.NewPriv
+	session.PubKey = session.PendingKey.NewPub
 	session.RekeySequence = session.PendingKey.RekeySequence
 	session.MessageCount = 0 // Reset message counter
 	session.LastUsed = time.Now()
@@ -360,7 +360,7 @@ func (sm *SessionManager) CompleteSession(
 	defer session.mu.Unlock()
 
 	// Derive shared secret using X25519 ECDH
-	sharedSecret, err := curve25519.X25519(session.EphemeralPriv[:], remoteKeyExchange.EphemeralPubKey[:])
+	sharedSecret, err := curve25519.X25519(session.PrivKey[:], remoteKeyExchange.PubKey[:])
 	if err != nil {
 		return fmt.Errorf("ECDH failed: %w", err)
 	}
