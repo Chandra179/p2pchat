@@ -60,7 +60,7 @@ func handleKeyExchange(stream network.Stream, payload interface{}, localPriv cry
 	}
 
 	// Create our own session (as responder)
-	session, ourKeyExchange, err := sessionManager.EstablishSession(peerID, localPriv, remotePub, false)
+	session, ourKeyExchange, err := sessionManager.InitiateSession(peerID, localPriv, false)
 	if err != nil {
 		fmt.Println("❌ Failed to establish session:", err)
 		return

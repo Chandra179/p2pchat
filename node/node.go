@@ -2,7 +2,6 @@ package node
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 
 	libp2p "github.com/libp2p/go-libp2p"
@@ -12,7 +11,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	mdns "github.com/libp2p/go-libp2p/p2p/discovery/mdns"
-	"github.com/libp2p/go-libp2p/p2p/security/noise"
 )
 
 type P2PNode struct {
@@ -22,14 +20,7 @@ type P2PNode struct {
 }
 
 func NewP2PNode(ctx context.Context) (*P2PNode, error) {
-	priv, _, err := crypto.GenerateEd25519Key(rand.Reader)
-	if err != nil {
-		return nil, err
-	}
-	h, err := libp2p.New(
-		libp2p.Identity(priv),
-		libp2p.Security(noise.ID, noise.New),
-	)
+	h, err := libp2p.New()
 	if err != nil {
 		return nil, err
 	}
@@ -37,10 +28,9 @@ func NewP2PNode(ctx context.Context) (*P2PNode, error) {
 	node := &P2PNode{
 		Host:       h,
 		Ctx:        ctx,
-		PrivateKey: priv,
+		PrivateKey: h.Peerstore().PrivKey(h.ID()),
 	}
 
-	// mDNS discovery
 	err = setupMDNS(h, &discoveryNotifee{Host: h})
 	if err != nil {
 		fmt.Println("⚠️ mDNS discovery failed:", err)

@@ -220,7 +220,7 @@ func establishSessionWithPeer(p protocol.ID, h host.Host, priv crypto.PrivKey, p
 		}
 
 		// Create session (as initiator)
-		session, keyExchange, err := sessionManager.EstablishSession(peerID.String(), priv, pub, true)
+		session, keyExchange, err := sessionManager.InitiateSession(peerID.String(), priv, true)
 		if err != nil {
 			return backoff.Permanent(err)
 		}

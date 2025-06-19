@@ -132,14 +132,12 @@ func VerifyKeyExchangeMessage(msg *SessionKeyExchange, identityPub crypto.PubKey
 	return nil
 }
 
-// EstablishSession performs the key exchange and establishes a session
-func (sm *SessionManager) EstablishSession(
+// InitiateSession creates initial session data and key exchange message to start session establishment
+func (sm *SessionManager) InitiateSession(
 	peerID string,
 	localIdentityPriv crypto.PrivKey,
-	remoteIdentityPub crypto.PubKey,
 	isInitiator bool,
 ) (*SessionKey, *SessionKeyExchange, error) {
-
 	// Generate ephemeral key pair
 	ephemeralPriv, ephemeralPub, err := GenerateEphemeralKeyPair()
 	if err != nil {
@@ -353,7 +351,6 @@ func (sm *SessionManager) CompleteSession(
 	remoteKeyExchange *SessionKeyExchange,
 	remoteIdentityPub crypto.PubKey,
 ) error {
-
 	// Verify the remote key exchange message
 	if err := VerifyKeyExchangeMessage(remoteKeyExchange, remoteIdentityPub); err != nil {
 		return fmt.Errorf("key exchange verification failed: %w", err)
