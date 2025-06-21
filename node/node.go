@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ipfs/go-cid"
 	libp2p "github.com/libp2p/go-libp2p"
+	discovery "github.com/libp2p/go-libp2p-discovery"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	host "github.com/libp2p/go-libp2p/core/host"
@@ -17,6 +17,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/libp2p/go-libp2p/core/routing"
+	routingdisc "github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	autorelay "github.com/libp2p/go-libp2p/p2p/host/autorelay"
 	connmgr "github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/multiformats/go-multiaddr"
@@ -115,30 +116,15 @@ func NewP2PNode(ctx context.Context) (*P2PNode, error) {
 		}
 	}()
 
-	// DHT-based rendezvous advertising
+	rendezvousString := "my-app-rendezvous"
+	routingDiscovery := routingdisc.NewRoutingDiscovery(kadDHT)
 	go func() {
-		time.Sleep(5 * time.Second) // Wait for DHT to bootstrap
-		rendezvousString := "my-app-rendezvous"
-
-		// Advertise ourselves
-		if err := kadDHT.Provide(ctx, cid.NewCidV1(cid.Raw, []byte(rendezvousString)), true); err != nil {
-			log.Printf("Failed to advertise on DHT: %v", err)
+		// Advertise presence on DHT
+		_, err := discovery.Advertise(ctx, routingDiscovery, rendezvousString)
+		if err != nil {
+			log.Printf("DHT advertise failed: %v", err)
 		} else {
-			log.Printf("Successfully advertised on DHT with key: %s", rendezvousString)
-		}
-
-		// Periodically re-advertise
-		ticker := time.NewTicker(10 * time.Minute)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				if err := kadDHT.Provide(ctx, cid.NewCidV1(cid.Raw, []byte(rendezvousString)), true); err != nil {
-					log.Printf("Failed to re-advertise on DHT: %v", err)
-				}
-			case <-ctx.Done():
-				return
-			}
+			log.Printf("Successfully advertised rendezvous: %s", rendezvousString)
 		}
 	}()
 
