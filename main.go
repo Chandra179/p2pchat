@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -21,21 +22,23 @@ const PrivateProtocolID = "/p2p-chat/1.0.0-private-ephemeral"
 
 func main() {
 	ctx := context.Background()
-	node, err := node.NewP2PNode(ctx)
+
+	// Create your P2P node
+	p2pNode, err := node.NewP2PNode(ctx)
 	if err != nil {
-		panic(err)
+		log.Fatal("Failed to create P2P node:", err)
 	}
+	defer p2pNode.Host.Close()
 
-	node.Info()
-	fmt.Println("🔐 Starting encrypted P2P chat with ephemeral session keys...")
-	fmt.Println("📝 Commands:")
-	fmt.Println("  - Type messages to send to connected peers")
-	fmt.Println("  - '/connect <multiaddr>' to connect to a peer")
-	fmt.Println("  - '/peers' to list connected peers")
-	fmt.Println("  - '/quit' to exit")
-	fmt.Println()
+	// Wait for some connections to establish
+	time.Sleep(10 * time.Second)
 
-	RunPrivateChat(ctx, node)
+	// Check connections once
+	p2pNode.PrintConnectionStats()
+
+	// Start periodic checking every 30 seconds
+	p2pNode.StartPeriodicConnectionCheck(30 * time.Second)
+
 	select {}
 }
 
@@ -65,19 +68,6 @@ func RunPubSub(ctx context.Context, node *node.P2PNode) {
 			pubsubService.Publish(topicName, data)
 		}
 	}()
-}
-
-func RunSimpleChat(ctx context.Context, node *node.P2PNode) {
-	node.SetStreamHandler(protocol.ProtocolID, protocol.ChatStreamHandler)
-
-	if len(os.Args) > 1 {
-		// Dial a peer
-		addr, _ := multiaddr.NewMultiaddr(os.Args[1])
-		pi, _ := peer.AddrInfoFromP2pAddr(addr)
-		node.Host.Connect(ctx, *pi)
-		s, _ := node.Host.NewStream(ctx, pi.ID, protocol.ProtocolID)
-		protocol.ChatStreamHandler(s)
-	}
 }
 
 func RunPrivateChat(ctx context.Context, node *node.P2PNode) {
