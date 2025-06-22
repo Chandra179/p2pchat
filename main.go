@@ -8,7 +8,6 @@ import (
 	"log"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -29,15 +28,7 @@ func main() {
 		log.Fatal("Failed to create P2P node:", err)
 	}
 	defer p2pNode.Host.Close()
-
-	// Wait for some connections to establish
-	time.Sleep(10 * time.Second)
-
-	// Check connections once
-	p2pNode.PrintConnectionStats()
-
-	// Start periodic checking every 30 seconds
-	p2pNode.StartPeriodicConnectionCheck(30 * time.Second)
+	p2pNode.CheckRelayReachability()
 
 	select {}
 }
