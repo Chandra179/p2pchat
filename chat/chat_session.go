@@ -1,5 +1,4 @@
-// protocol/ephemeral_session.go
-package protocol
+package chat
 
 import (
 	"crypto/rand"
