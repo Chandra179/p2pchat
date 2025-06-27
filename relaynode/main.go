@@ -11,6 +11,7 @@ import (
 )
 
 func main() {
+	fmt.Println("aaaaaaaaaaaa")
 	relay1, err := libp2p.New()
 	if err != nil {
 		log.Printf("Failed to create relay1: %v", err)
