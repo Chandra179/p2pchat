@@ -47,14 +47,15 @@ func peerTest() {
 		log.Printf("Failed to parse multiaddr: %v", err)
 		return
 	}
-	relay1info := peer.AddrInfo{
+	relayinfo := peer.AddrInfo{
 		ID:    peer.ID(relayID),
 		Addrs: []ma.Multiaddr{addr},
 	}
-	if err := unreachable1.Connect(context.Background(), relay1info); err != nil {
+	if err := unreachable1.Connect(context.Background(), relayinfo); err != nil {
 		log.Printf("Failed to connect unreachable1 and relay1: %v", err)
 		return
 	}
+	fmt.Println("Connected to relay")
 	select {}
 }
 
@@ -94,7 +95,7 @@ func relayTest() {
 		ID:    relay1.ID(),
 		Addrs: relay1.Addrs(),
 	}
-	fmt.Println(relayinfo.ID)
+	fmt.Println(relayinfo.ID.String())
 	fmt.Println(relayinfo.Addrs)
 	select {}
 }
