@@ -20,6 +20,18 @@ func main() {
 }
 
 func peerTest() {
+	// Load .env file
+	if err := godotenv.Load(".env"); err != nil {
+		log.Printf("Failed to load .env: %v", err)
+		return
+	}
+	relayIP := os.Getenv("RELAY_IP")
+	relayPort := os.Getenv("RELAY_TCP_PORT")
+	relayID := os.Getenv("RELAY_ID")
+	if relayIP == "" || relayPort == "" || relayID == "" {
+		log.Printf("RELAY_IP, RELAY_TCP_PORT, or RELAY_ID not set in .env")
+		return
+	}
 	unreachable1, err := libp2p.New(
 		libp2p.NoListenAddrs,
 		// Usually EnableRelay() is not required as it is enabled by default
@@ -30,15 +42,20 @@ func peerTest() {
 		log.Printf("Failed to create unreachable1: %v", err)
 		return
 	}
-	relay1info := peer.AddrInfo{
-		// ID:    relay1.ID(),
-		// Addrs: relay1.Addrs(),
+	addr, err := ma.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%s", relayIP, relayPort))
+	if err != nil {
+		log.Printf("Failed to parse multiaddr: %v", err)
+		return
 	}
-	// Connect both unreachable1 and unreachable2 to relay1
+	relay1info := peer.AddrInfo{
+		ID:    peer.ID(relayID),
+		Addrs: []ma.Multiaddr{addr},
+	}
 	if err := unreachable1.Connect(context.Background(), relay1info); err != nil {
 		log.Printf("Failed to connect unreachable1 and relay1: %v", err)
 		return
 	}
+	select {}
 }
 
 func relayTest() {
@@ -48,12 +65,13 @@ func relayTest() {
 		return
 	}
 	publicIP := os.Getenv("PUBLIC_IP")
-	if publicIP == "" {
-		fmt.Println("PUBLIC_IP not set in .env")
+	relayPort := os.Getenv("RELAY_TCP_PORT")
+	if publicIP == "" || relayPort == "" {
+		fmt.Println("PUBLIC_IP or RELAY_TCP_PORT not set in .env")
 		return
 	}
-	listenAddr := "/ip4/0.0.0.0/tcp/9000"
-	advertiseAddr := "/ip4/" + publicIP + "/tcp/9000"
+	listenAddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%s", relayPort)
+	advertiseAddr := fmt.Sprintf("/ip4/%s/tcp/%s", publicIP, relayPort)
 
 	relay1, err := libp2p.New(
 		libp2p.ListenAddrStrings(listenAddr),
@@ -64,12 +82,12 @@ func relayTest() {
 		}),
 	)
 	if err != nil {
-		fmt.Printf("Failed to create relay1: %v", err)
+		fmt.Printf("Failed to create relay1: %v\n", err)
 		return
 	}
 	_, err = relay.New(relay1)
 	if err != nil {
-		fmt.Printf("Failed to instantiate the relay: %v", err)
+		fmt.Printf("Failed to instantiate the relay: %v\n", err)
 		return
 	}
 	relayinfo := peer.AddrInfo{
