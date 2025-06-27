@@ -24,3 +24,5 @@ p2pchat
 vendor
 /vendor
 go.sum
+.env
+env
