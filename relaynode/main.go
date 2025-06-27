@@ -30,5 +30,4 @@ func main() {
 	for _, addr := range relay1info.Addrs {
 		fmt.Println(addr)
 	}
-	select {}
 }
