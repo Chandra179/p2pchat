@@ -1,18 +1,47 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/relay"
 
 	"github.com/joho/godotenv"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/relay"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
 func main() {
+	relayTest()
+	// peerTest()
+}
+
+func peerTest() {
+	unreachable1, err := libp2p.New(
+		libp2p.NoListenAddrs,
+		// Usually EnableRelay() is not required as it is enabled by default
+		// but NoListenAddrs overrides this, so we're adding it in explicitly again.
+		libp2p.EnableRelay(),
+	)
+	if err != nil {
+		log.Printf("Failed to create unreachable1: %v", err)
+		return
+	}
+	relay1info := peer.AddrInfo{
+		// ID:    relay1.ID(),
+		// Addrs: relay1.Addrs(),
+	}
+	// Connect both unreachable1 and unreachable2 to relay1
+	if err := unreachable1.Connect(context.Background(), relay1info); err != nil {
+		log.Printf("Failed to connect unreachable1 and relay1: %v", err)
+		return
+	}
+}
+
+func relayTest() {
 	// Load .env file
 	if err := godotenv.Load(".env"); err != nil {
 		fmt.Printf("Failed to load .env: %v\n", err)
@@ -43,14 +72,11 @@ func main() {
 		fmt.Printf("Failed to instantiate the relay: %v", err)
 		return
 	}
-
-	relay1info := peer.AddrInfo{
+	relayinfo := peer.AddrInfo{
 		ID:    relay1.ID(),
 		Addrs: relay1.Addrs(),
 	}
-	fmt.Println(relay1info.ID)
-	for _, addr := range relay1info.Addrs {
-		fmt.Println(addr)
-	}
+	fmt.Println(relayinfo.ID)
+	fmt.Println(relayinfo.Addrs)
 	select {}
 }
