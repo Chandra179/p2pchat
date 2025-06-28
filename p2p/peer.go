@@ -113,16 +113,19 @@ func (p *PeerInfo) ConnectPeer(targetPeerID string) error {
 
 // SendMessage opens a stream to the target peer and sends a message
 func (p *PeerInfo) SendMessage(targetPeerID string, message string) error {
+	fmt.Println("asdasdasd")
 	targetID, err := peer.Decode(targetPeerID)
 	if err != nil {
 		log.Printf("Failed to decode target peer ID: %v", err)
 		return err
 	}
+	fmt.Println("bbbbb")
 	stream, err := p.Host.NewStream(context.Background(), targetID, "/customprotocol")
 	if err != nil {
 		log.Printf("Failed to open stream to peer %s: %v", targetPeerID, err)
 		return err
 	}
+	fmt.Println("ccccc")
 	defer stream.Close()
 	_, err = stream.Write([]byte(message))
 	if err != nil {
