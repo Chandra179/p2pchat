@@ -47,6 +47,18 @@ func InitPeer(cfg *config.Config) (*PeerInfo, error) {
 	}
 	peerHost.SetStreamHandler("/customprotocol", func(s network.Stream) {
 		log.Println("Awesome! We're now communicating via the relay!")
+		// Read and print incoming messages
+		buf := make([]byte, 4096)
+		for {
+			n, err := s.Read(buf)
+			if n > 0 {
+				msg := string(buf[:n])
+				fmt.Printf("\n[Message received]: %s\n> ", msg)
+			}
+			if err != nil {
+				break
+			}
+		}
 		s.Close()
 	})
 	fmt.Println("Peer ID:", peerHost.ID())
@@ -73,21 +85,49 @@ func (p *PeerInfo) ConnectRelay() {
 	}
 }
 
-func (p *PeerInfo) ConnectPeer(targetPeerID string) {
+func (p *PeerInfo) ConnectPeer(targetPeerID string) error {
 	targetRelayaddr, err := ma.NewMultiaddr("/p2p/" + p.RelayID.String() + "/p2p-circuit/p2p/" + targetPeerID)
 	if err != nil {
 		log.Println(err)
-		return
+		return err
+	}
+	targetID, err := peer.Decode(targetPeerID)
+	if err != nil {
+		log.Printf("Failed to decode target peer ID: %v", err)
+		return err
 	}
 	targetPeer := peer.AddrInfo{
-		ID:    peer.ID(targetPeerID),
+		ID:    targetID,
 		Addrs: []ma.Multiaddr{targetRelayaddr},
 	}
 	if err := p.Host.Connect(context.Background(), targetPeer); err != nil {
-		log.Printf("Unexpected error here. Failed to connect unreachable1 and unreachable2: %v", err)
-		return
+		log.Printf("Unexpected error here. Failed to connect peer to target peer: %v", err)
+		return err
 	}
 	log.Printf("Connected to peer %s via relay %s", targetPeerID, p.RelayID)
+	return nil
+}
+
+// SendMessage opens a stream to the target peer and sends a message
+func (p *PeerInfo) SendMessage(targetPeerID string, message string) error {
+	targetID, err := peer.Decode(targetPeerID)
+	if err != nil {
+		log.Printf("Failed to decode target peer ID: %v", err)
+		return err
+	}
+	stream, err := p.Host.NewStream(context.Background(), targetID, "/customprotocol")
+	if err != nil {
+		log.Printf("Failed to open stream to peer %s: %v", targetPeerID, err)
+		return err
+	}
+	defer stream.Close()
+	_, err = stream.Write([]byte(message))
+	if err != nil {
+		log.Printf("Failed to send message: %v", err)
+		return err
+	}
+	fmt.Println("Message sent!")
+	return nil
 }
 
 func RunPeer(cfg *config.Config) {
@@ -98,14 +138,27 @@ func RunPeer(cfg *config.Config) {
 	peerInfo.ConnectRelay()
 	go func() {
 		for {
-			var cmd, arg string
+			var cmd, arg, msg string
 			fmt.Print("> ")
-			_, err := fmt.Scanln(&cmd, &arg)
+			// Accepts: con <peerID> or send <peerID> <message>
+			inputCount, err := fmt.Scanln(&cmd, &arg, &msg)
 			if err != nil {
+				fmt.Printf("Input error: %v\n", err)
+				continue
+			}
+			if inputCount < 2 {
 				continue
 			}
 			if cmd == "con" && arg != "" {
-				peerInfo.ConnectPeer(arg)
+				err := peerInfo.ConnectPeer(arg)
+				if err != nil {
+					fmt.Printf("ConnectPeer error: %v\n", err)
+				}
+			} else if cmd == "send" && arg != "" && msg != "" {
+				err := peerInfo.SendMessage(arg, msg)
+				if err != nil {
+					fmt.Printf("SendMessage error: %v\n", err)
+				}
 			}
 		}
 	}()
