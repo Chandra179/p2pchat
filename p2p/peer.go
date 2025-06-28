@@ -70,8 +70,6 @@ func (p *PeerInfo) ConnectRelay() {
 		log.Printf("failed to receive a relay reservation from relay. %v", err)
 		return
 	}
-
-	select {}
 }
 
 func (p *PeerInfo) ConnectPeer(targetPeerID string) {
@@ -88,7 +86,7 @@ func (p *PeerInfo) ConnectPeer(targetPeerID string) {
 		log.Printf("Unexpected error here. Failed to connect unreachable1 and unreachable2: %v", err)
 		return
 	}
-	log.Printf("Connected to peer %s via relay %s", targetPeerID, p.RelayID.String())
+	log.Printf("Connected to peer %s via relay %s", targetPeerID, p.RelayID)
 }
 
 func RunPeer(cfg *config.Config) {
