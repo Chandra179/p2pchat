@@ -7,6 +7,6 @@ import (
 
 func main() {
 	cfg := config.LoadConfig()
-	p2p.RunRelay(cfg)
-	// p2p.RunPeer(cfg)
+	// p2p.RunRelay(cfg)
+	p2p.RunPeer(cfg)
 }

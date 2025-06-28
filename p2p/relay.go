@@ -13,8 +13,6 @@ import (
 )
 
 func RunRelay(cfg *config.Config) {
-	fmt.Println("aaaaaaaaaaaaaa")
-	fmt.Println("Relay ID:", cfg.RelayID)
 	privKey, err := decodePrivateKey(cfg.RelayID)
 	if err != nil {
 		fmt.Printf("Failed to decode private key: %v\n", err)
