@@ -45,6 +45,10 @@ func InitPeer(cfg *config.Config) (*PeerInfo, error) {
 		log.Printf("Failed to create node: %v", err)
 		return nil, err
 	}
+	peerHost.SetStreamHandler("/customprotocol", func(s network.Stream) {
+		log.Println("Awesome! We're now communicating via the relay!")
+		s.Close()
+	})
 	return &PeerInfo{
 		RelayID:   relayID,
 		RelayAddr: relayAddr,
@@ -61,10 +65,6 @@ func (p *PeerInfo) ConnectRelay() {
 		log.Printf("Failed to connect peer to relay: %v", err)
 		return
 	}
-	p.Host.SetStreamHandler("/customprotocol", func(s network.Stream) {
-		log.Println("Awesome! We're now communicating via the relay!")
-		s.Close()
-	})
 	_, err := client.Reserve(context.Background(), p.Host, relayinfo)
 	if err != nil {
 		log.Printf("failed to receive a relay reservation from relay. %v", err)
