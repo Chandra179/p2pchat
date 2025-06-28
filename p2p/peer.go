@@ -107,11 +107,6 @@ func (p *PeerInfo) SendMessage(targetPeerID string, message string) error {
 		log.Printf("Failed to decode target peer ID: %v", err)
 		return err
 	}
-	stream, err := p.Host.NewStream(context.Background(), targetID, "/customprotocol")
-	if err != nil {
-		log.Printf("Failed to open stream to peer %s: %v", targetPeerID, err)
-		return err
-	}
 	// Because we don't have a direct connection to the destination node - we have a relayed connection -
 	// the connection is marked as transient. Since the relay limits the amount of data that can be
 	// exchanged over the relayed connection, the application needs to explicitly opt-in into using a
@@ -125,8 +120,8 @@ func (p *PeerInfo) SendMessage(targetPeerID string, message string) error {
 
 	s.Read(make([]byte, 1)) // block until the handler closes the stream
 	defer s.Close()
-	defer stream.Close()
-	_, err = stream.Write([]byte(message))
+
+	_, err = s.Write([]byte(message))
 	if err != nil {
 		log.Printf("Failed to send message: %v", err)
 		return err
