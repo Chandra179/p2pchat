@@ -3,6 +3,7 @@ package p2p
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -49,19 +50,7 @@ func InitPeer(cfg *config.Config) (*PeerInfo, error) {
 		return nil, err
 	}
 	peerHost.SetStreamHandler("/customprotocol", func(s network.Stream) {
-		log.Println("Awesome! We're now communicating via the relay!")
-		// Read and print incoming messages
-		buf := make([]byte, 4096)
-		for {
-			n, err := s.Read(buf)
-			if n > 0 {
-				msg := string(buf[:n])
-				fmt.Printf("\n[Message received]: %s\n> ", msg)
-			}
-			if err != nil {
-				break
-			}
-		}
+		fmt.Println("IT WORKSSSSSSSSSSSSSSSSSSSSSSSS")
 		s.Close()
 	})
 	fmt.Println("Peer ID:", peerHost.ID())
@@ -113,19 +102,29 @@ func (p *PeerInfo) ConnectPeer(targetPeerID string) error {
 
 // SendMessage opens a stream to the target peer and sends a message
 func (p *PeerInfo) SendMessage(targetPeerID string, message string) error {
-	fmt.Println("asdasdasd")
 	targetID, err := peer.Decode(targetPeerID)
 	if err != nil {
 		log.Printf("Failed to decode target peer ID: %v", err)
 		return err
 	}
-	fmt.Println("bbbbb")
 	stream, err := p.Host.NewStream(context.Background(), targetID, "/customprotocol")
 	if err != nil {
 		log.Printf("Failed to open stream to peer %s: %v", targetPeerID, err)
 		return err
 	}
-	fmt.Println("ccccc")
+	// Because we don't have a direct connection to the destination node - we have a relayed connection -
+	// the connection is marked as transient. Since the relay limits the amount of data that can be
+	// exchanged over the relayed connection, the application needs to explicitly opt-in into using a
+	// relayed connection. In general, we should only do this if we have low bandwidth requirements,
+	// and we're happy for the connection to be killed when the relayed connection is replaced with a
+	// direct (holepunched) connection.
+	s, err := p.Host.NewStream(network.WithAllowLimitedConn(context.Background(), "customprotocol"), targetID, "/customprotocol")
+	if err != nil {
+		return errors.New("Whoops, this should have worked...: " + err.Error())
+	}
+
+	s.Read(make([]byte, 1)) // block until the handler closes the stream
+	defer s.Close()
 	defer stream.Close()
 	_, err = stream.Write([]byte(message))
 	if err != nil {
