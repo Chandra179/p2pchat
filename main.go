@@ -2,11 +2,11 @@ package main
 
 import (
 	"p2p/config"
-	"p2p/relay"
+	"p2p/p2p"
 )
 
 func main() {
 	cfg := config.LoadConfig()
-	relay.RunRelay(cfg)
-	// peer.RunPeer(cfg)
+	p2p.RunRelay(cfg)
+	// p2p.RunPeer(cfg)
 }

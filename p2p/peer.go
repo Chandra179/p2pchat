@@ -1,4 +1,4 @@
-package peer
+package p2p
 
 import (
 	"context"
@@ -18,16 +18,17 @@ type PeerEnv struct {
 }
 
 func RunPeer(cfg *config.Config) {
-	if cfg.RelayIP == "" || cfg.RelayPort == "" || cfg.RelayID == "" {
-		log.Printf("RELAY_IP, RELAY_TCP_PORT, or RELAY_ID not set in config")
+	privKey, err := decodePrivateKey(cfg.RelayID)
+	if err != nil {
+		fmt.Printf("Failed to decode private key: %v\n", err)
 		return
 	}
-	unreachable1, err := libp2p.New(
+	node, err := libp2p.New(
 		libp2p.NoListenAddrs,
 		libp2p.EnableRelay(),
 	)
 	if err != nil {
-		log.Printf("Failed to create unreachable1: %v", err)
+		log.Printf("Failed to create node: %v", err)
 		return
 	}
 	addr, err := ma.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%s", cfg.RelayIP, cfg.RelayPort))
@@ -35,15 +36,16 @@ func RunPeer(cfg *config.Config) {
 		log.Printf("Failed to parse multiaddr: %v", err)
 		return
 	}
-	ID, err := peer.Decode(cfg.RelayID)
+	peerID, err := peer.IDFromPrivateKey(privKey)
 	if err != nil {
-		log.Fatalf("Invalid peer ID: %v", err)
+		log.Printf("Failed to derive peer ID from private key: %v", err)
+		return
 	}
 	relayinfo := peer.AddrInfo{
-		ID:    ID,
+		ID:    peerID,
 		Addrs: []ma.Multiaddr{addr},
 	}
-	if err := unreachable1.Connect(context.Background(), relayinfo); err != nil {
+	if err := node.Connect(context.Background(), relayinfo); err != nil {
 		log.Printf("Failed to connect unreachable1 and relay1: %v", err)
 		return
 	}
