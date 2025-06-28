@@ -49,6 +49,7 @@ func InitPeer(cfg *config.Config) (*PeerInfo, error) {
 		log.Println("Awesome! We're now communicating via the relay!")
 		s.Close()
 	})
+	fmt.Println("Peer ID:", peerHost.ID())
 	return &PeerInfo{
 		RelayID:   relayID,
 		RelayAddr: relayAddr,
