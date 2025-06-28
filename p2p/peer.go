@@ -1,10 +1,13 @@
 package p2p
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"p2p/config"
+	"strings"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -137,17 +140,26 @@ func RunPeer(cfg *config.Config) {
 	}
 	peerInfo.ConnectRelay()
 	go func() {
+		reader := bufio.NewReader(os.Stdin)
 		for {
-			var cmd, arg, msg string
 			fmt.Print("> ")
-			// Accepts: con <peerID> or send <peerID> <message>
-			inputCount, err := fmt.Scanln(&cmd, &arg, &msg)
+			line, err := reader.ReadString('\n')
 			if err != nil {
 				fmt.Printf("Input error: %v\n", err)
 				continue
 			}
-			if inputCount < 2 {
+			line = strings.TrimSpace(line)
+			if line == "" {
 				continue
+			}
+			fields := strings.Fields(line)
+			if len(fields) < 2 {
+				continue
+			}
+			cmd, arg := fields[0], fields[1]
+			msg := ""
+			if cmd == "send" && len(fields) > 2 {
+				msg = strings.Join(fields[2:], " ")
 			}
 			if cmd == "con" && arg != "" {
 				err := peerInfo.ConnectPeer(arg)
