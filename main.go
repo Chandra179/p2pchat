@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"log"
@@ -8,14 +9,15 @@ import (
 	"p2p/config"
 	"p2p/peer"
 	"p2p/relay"
+	"strings"
 )
 
 func main() {
-	mode := flag.String("mode", "", "Mode to run: 'relay', 'peer', or 'con' (required)")
+	mode := flag.String("mode", "", "Mode to run: 'relay' or 'peer' (required for startup)")
 	flag.Parse()
 
 	if *mode == "" {
-		fmt.Fprintln(os.Stderr, "Error: --mode flag is required ('relay', 'peer', or 'con')")
+		fmt.Fprintln(os.Stderr, "Error: --mode flag is required ('relay' or 'peer')")
 		os.Exit(1)
 	}
 
@@ -33,25 +35,44 @@ func main() {
 			log.Fatalf("Failed to run peer: %v", err)
 		}
 		peerInfo = *p
-	case "con":
-		fmt.Println("Connecting to peer...")
-		args := flag.Args()
-		if len(args) < 1 {
-			log.Fatalf("targetpeerid argument is required in 'con' mode (usage: --mode=con targetpeerid)")
-		}
-		targetPeerID := args[0]
-		if err := peerInfo.ConnectPeer(targetPeerID); err != nil {
-			log.Fatalf("Failed to connect to peer: %v", err)
-		}
-	case "send":
-		fmt.Println("Sending message to peer...")
-		args := flag.Args()
-		if len(args) < 1 {
-			log.Fatalf("message arguments are required in 'send' mode (usage: --mode=send message)")
-		}
-		message := args[0]
-		if err := peerInfo.SendMessage(message); err != nil {
-			log.Fatalf("Failed to send message: %v", err)
+		// Enter REPL for commands
+		fmt.Println("Peer started. Enter commands: 'con <targetpeerid>', 'send <message>', or 'exit'.")
+		scanner := bufio.NewScanner(os.Stdin)
+		for {
+			fmt.Print("> ")
+			if !scanner.Scan() {
+				break
+			}
+			input := scanner.Text()
+			fields := strings.Fields(input)
+			if len(fields) == 0 {
+				continue
+			}
+			switch fields[0] {
+			case "con":
+				if len(fields) < 2 {
+					fmt.Println("Usage: con <targetpeerid>")
+					continue
+				}
+				targetPeerID := fields[1]
+				if err := peerInfo.ConnectPeer(targetPeerID); err != nil {
+					fmt.Printf("Failed to connect to peer: %v\n", err)
+				}
+			case "send":
+				if len(fields) < 2 {
+					fmt.Println("Usage: send <message>")
+					continue
+				}
+				msg := strings.Join(fields[1:], " ")
+				if err := peerInfo.SendMessage(msg); err != nil {
+					fmt.Printf("Failed to send message: %v\n", err)
+				}
+			case "exit":
+				fmt.Println("Exiting peer...")
+				os.Exit(0)
+			default:
+				fmt.Println("Unknown command. Use 'con <targetpeerid>', 'send <message>', or 'exit'.")
+			}
 		}
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown mode: %s\n", *mode)
