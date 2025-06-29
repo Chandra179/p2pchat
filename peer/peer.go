@@ -1,12 +1,10 @@
 package peer
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
 	"log"
-	"os"
 	"p2p/config"
 	"p2p/utils"
 	"strings"
@@ -21,10 +19,11 @@ import (
 )
 
 type PeerInfo struct {
-	RelayID   peer.ID
-	PeerID    peer.ID
-	RelayAddr ma.Multiaddr
-	Host      host.Host
+	RelayID      peer.ID
+	PeerID       peer.ID
+	RelayAddr    ma.Multiaddr
+	TargetPeerID peer.ID
+	Host         host.Host
 }
 
 type ConnLogger struct{}
@@ -111,7 +110,7 @@ func (p *PeerInfo) connectRelay() {
 	}
 }
 
-func (p *PeerInfo) connectPeer(targetPeerID string) error {
+func (p *PeerInfo) ConnectPeer(targetPeerID string) error {
 	targetRelayaddr, err := ma.NewMultiaddr("/p2p/" + p.RelayID.String() + "/p2p-circuit/p2p/" + targetPeerID)
 	if err != nil {
 		log.Println(err)
@@ -139,23 +138,19 @@ func (p *PeerInfo) connectPeer(targetPeerID string) error {
 			fmt.Printf("📡 Connected to %s via DIRECT (Hole Punched): %s\n", targetID, remoteAddr)
 		}
 	}
+	p.TargetPeerID = targetID
 	log.Printf("Connected to peer %s via relay %s", targetPeerID, p.RelayID)
 	return nil
 }
 
-func (p *PeerInfo) sendMessage(targetPeerID string, message string) error {
-	targetID, err := peer.Decode(targetPeerID)
-	if err != nil {
-		log.Printf("Failed to decode target peer ID: %v", err)
-		return err
-	}
+func (p *PeerInfo) SendMessage(message string) error {
 	// Because we don't have a direct connection to the destination node - we have a relayed connection -
 	// the connection is marked as transient. Since the relay limits the amount of data that can be
 	// exchanged over the relayed connection, the application needs to explicitly opt-in into using a
 	// relayed connection. In general, we should only do this if we have low bandwidth requirements,
 	// and we're happy for the connection to be killed when the relayed connection is replaced with a
 	// direct (holepunched) connection.
-	s, err := p.Host.NewStream(network.WithAllowLimitedConn(context.Background(), "customprotocol"), targetID, "/customprotocol")
+	s, err := p.Host.NewStream(network.WithAllowLimitedConn(context.Background(), "customprotocol"), p.TargetPeerID, "/customprotocol")
 	if err != nil {
 		return errors.New("Whoops, this should have worked...: " + err.Error())
 	}
@@ -172,42 +167,11 @@ func (p *PeerInfo) sendMessage(targetPeerID string, message string) error {
 	return nil
 }
 
-func RunPeer(cfg *config.Config) {
+func RunPeer(cfg *config.Config) (*PeerInfo, error) {
 	peerInfo, err := initPeer(cfg)
 	if err != nil {
 		log.Fatalf("Failed to initialize peer: %v", err)
 	}
 	peerInfo.connectRelay()
-	go func() {
-		reader := bufio.NewReader(os.Stdin)
-		for {
-			fmt.Print("> ")
-			line, err := reader.ReadString('\n')
-			if err != nil {
-				fmt.Printf("Input error: %v\n", err)
-				continue
-			}
-			line = strings.TrimSpace(line)
-			if line == "" {
-				continue
-			}
-			fields := strings.Fields(line)
-			if len(fields) < 2 {
-				continue
-			}
-			cmd, arg := fields[0], fields[1]
-			msg := ""
-			if cmd == "send" && arg != "" && msg != "" {
-				err = peerInfo.sendMessage(arg, msg)
-				if err != nil {
-					fmt.Printf("SendMessage error: %v\n", err)
-				}
-			} else if cmd == "con" && arg != "" {
-				err := peerInfo.connectPeer(arg)
-				if err != nil {
-					fmt.Printf("ConnectPeer error: %v\n", err)
-				}
-			}
-		}
-	}()
+	return peerInfo, nil
 }
