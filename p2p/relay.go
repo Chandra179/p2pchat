@@ -61,5 +61,6 @@ func GenerateStaticRelayKey() (string, error) {
 		return "", fmt.Errorf("failed to marshal private key: %w", err)
 	}
 
+	fmt.Println("Generated static relay key:", base64.StdEncoding.EncodeToString(bytes))
 	return base64.StdEncoding.EncodeToString(bytes), nil
 }

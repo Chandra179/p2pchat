@@ -20,28 +20,35 @@ import (
 
 type PeerInfo struct {
 	RelayID   peer.ID
+	PeerID    peer.ID
 	RelayAddr ma.Multiaddr
 	Host      host.Host
 }
 
-func InitPeer(cfg *config.Config) (*PeerInfo, error) {
+func initPeer(cfg *config.Config) (*PeerInfo, error) {
 	// priv key is for relay ID
-	privKey, err := decodePrivateKey(cfg.RelayID)
+	privKeyRelay, err := decodePrivateKey(cfg.RelayID)
 	if err != nil {
 		fmt.Printf("Failed to decode private key: %v\n", err)
 		return nil, err
 	}
-	relayID, err := peer.IDFromPrivateKey(privKey)
+	relayID, err := peer.IDFromPrivateKey(privKeyRelay)
 	if err != nil {
 		log.Printf("Failed to derive relay ID from private key: %v", err)
 		return nil, err
 	}
-	relayAddr, err := ma.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%s", cfg.RelayIP, cfg.RelayPort))
+	privKeyPeer, err := decodePrivateKey(cfg.PeerID)
+	if err != nil {
+		fmt.Printf("Failed to decode private key: %v\n", err)
+		return nil, err
+	}
+	relayAddr, err := ma.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%s", cfg.PublicIP, cfg.RelayPort))
 	if err != nil {
 		log.Printf("Failed to parse multiaddr: %v", err)
 		return nil, err
 	}
 	peerHost, err := libp2p.New(
+		libp2p.Identity(privKeyPeer),
 		libp2p.NoListenAddrs,
 		libp2p.EnableRelay(),
 	)
@@ -50,7 +57,7 @@ func InitPeer(cfg *config.Config) (*PeerInfo, error) {
 		return nil, err
 	}
 	peerHost.SetStreamHandler("/customprotocol", func(s network.Stream) {
-		fmt.Println("IT WORKSSSSSSSSSSSSSSSSSSSSSSSS")
+		fmt.Println("It works")
 		s.Close()
 	})
 	fmt.Println("Peer ID:", peerHost.ID())
@@ -61,7 +68,7 @@ func InitPeer(cfg *config.Config) (*PeerInfo, error) {
 	}, nil
 }
 
-func (p *PeerInfo) ConnectRelay() {
+func (p *PeerInfo) connectRelay() {
 	relayinfo := peer.AddrInfo{
 		ID:    p.RelayID,
 		Addrs: []ma.Multiaddr{p.RelayAddr},
@@ -77,7 +84,7 @@ func (p *PeerInfo) ConnectRelay() {
 	}
 }
 
-func (p *PeerInfo) ConnectPeer(targetPeerID string) error {
+func (p *PeerInfo) connectPeer(targetPeerID string) error {
 	targetRelayaddr, err := ma.NewMultiaddr("/p2p/" + p.RelayID.String() + "/p2p-circuit/p2p/" + targetPeerID)
 	if err != nil {
 		log.Println(err)
@@ -100,8 +107,8 @@ func (p *PeerInfo) ConnectPeer(targetPeerID string) error {
 	return nil
 }
 
-// SendMessage opens a stream to the target peer and sends a message
-func (p *PeerInfo) SendMessage(targetPeerID string, message string) error {
+// sendMessage opens a stream to the target peer and sends a message
+func (p *PeerInfo) sendMessage(targetPeerID string, message string) error {
 	targetID, err := peer.Decode(targetPeerID)
 	if err != nil {
 		log.Printf("Failed to decode target peer ID: %v", err)
@@ -131,11 +138,11 @@ func (p *PeerInfo) SendMessage(targetPeerID string, message string) error {
 }
 
 func RunPeer(cfg *config.Config) {
-	peerInfo, err := InitPeer(cfg)
+	peerInfo, err := initPeer(cfg)
 	if err != nil {
 		log.Fatalf("Failed to initialize peer: %v", err)
 	}
-	peerInfo.ConnectRelay()
+	peerInfo.connectRelay()
 	go func() {
 		reader := bufio.NewReader(os.Stdin)
 		for {
@@ -155,16 +162,12 @@ func RunPeer(cfg *config.Config) {
 			}
 			cmd, arg := fields[0], fields[1]
 			msg := ""
-			if cmd == "send" && len(fields) > 2 {
-				msg = strings.Join(fields[2:], " ")
-			}
-			if cmd == "con" && arg != "" {
-				err := peerInfo.ConnectPeer(arg)
+			if cmd == "send" && arg != "" && msg != "" {
+				err := peerInfo.connectPeer(arg)
 				if err != nil {
 					fmt.Printf("ConnectPeer error: %v\n", err)
 				}
-			} else if cmd == "send" && arg != "" && msg != "" {
-				err := peerInfo.SendMessage(arg, msg)
+				err = peerInfo.sendMessage(arg, msg)
 				if err != nil {
 					fmt.Printf("SendMessage error: %v\n", err)
 				}
