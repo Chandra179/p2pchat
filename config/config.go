@@ -8,10 +8,11 @@ import (
 )
 
 type Config struct {
-	RelayIP   string
-	RelayPort string
-	RelayID   string
-	PublicIP  string
+	RelayPort    string
+	RelayID      string
+	PeerID       string
+	PublicIP     string
+	TargetPeerID string
 }
 
 func LoadConfig() *Config {
@@ -19,9 +20,10 @@ func LoadConfig() *Config {
 		log.Printf("Failed to load .env: %v", err)
 	}
 	return &Config{
-		RelayIP:   os.Getenv("RELAY_IP"),
-		RelayPort: os.Getenv("RELAY_TCP_PORT"),
-		RelayID:   os.Getenv("RELAY_ID"),
-		PublicIP:  os.Getenv("PUBLIC_IP"),
+		RelayPort:    os.Getenv("RELAY_TCP_PORT"),
+		RelayID:      os.Getenv("RELAY_ID"),
+		PeerID:       os.Getenv("PEER_ID"),
+		PublicIP:     os.Getenv("PUBLIC_IP"),
+		TargetPeerID: os.Getenv("TARGET_PEER_ID"),
 	}
 }
