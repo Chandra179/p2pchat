@@ -1,4 +1,4 @@
-.PHONY: push
+.PHONY: push peer relay
 
 push:
 	git add .
