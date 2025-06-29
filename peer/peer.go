@@ -1,4 +1,4 @@
-package p2p
+package peer
 
 import (
 	"bufio"
@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"p2p/config"
+	"p2p/utils"
 	"strings"
 
 	"github.com/libp2p/go-libp2p"
@@ -45,7 +46,7 @@ func (cl *ConnLogger) ClosedStream(net network.Network, stream network.Stream) {
 
 func initPeer(cfg *config.Config) (*PeerInfo, error) {
 	// priv key is for relay ID
-	privKeyRelay, err := decodePrivateKey(cfg.RelayID)
+	privKeyRelay, err := utils.DecodePrivateKey(cfg.RelayID)
 	if err != nil {
 		fmt.Printf("Failed to decode private key: %v\n", err)
 		return nil, err
@@ -55,7 +56,7 @@ func initPeer(cfg *config.Config) (*PeerInfo, error) {
 		log.Printf("Failed to derive relay ID from private key: %v", err)
 		return nil, err
 	}
-	privKeyPeer, err := decodePrivateKey(cfg.PeerID)
+	privKeyPeer, err := utils.DecodePrivateKey(cfg.PeerID)
 	if err != nil {
 		fmt.Printf("Failed to decode private key: %v\n", err)
 		return nil, err

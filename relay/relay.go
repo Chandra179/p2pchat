@@ -1,9 +1,10 @@
-package p2p
+package relay
 
 import (
 	"encoding/base64"
 	"fmt"
 	"p2p/config"
+	"p2p/utils"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -13,7 +14,7 @@ import (
 )
 
 func RunRelay(cfg *config.Config) {
-	privKey, err := decodePrivateKey(cfg.RelayID)
+	privKey, err := utils.DecodePrivateKey(cfg.RelayID)
 	if err != nil {
 		fmt.Printf("Failed to decode private key: %v\n", err)
 		return
