@@ -14,6 +14,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
+	autonat "github.com/libp2p/go-libp2p/p2p/host/autonat"
 	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
 	ma "github.com/multiformats/go-multiaddr"
 )
@@ -23,6 +24,23 @@ type PeerInfo struct {
 	PeerID    peer.ID
 	RelayAddr ma.Multiaddr
 	Host      host.Host
+}
+
+type ConnLogger struct{}
+
+func (cl *ConnLogger) Listen(net network.Network, addr ma.Multiaddr)      {}
+func (cl *ConnLogger) ListenClose(net network.Network, addr ma.Multiaddr) {}
+func (cl *ConnLogger) Connected(net network.Network, conn network.Conn) {
+	fmt.Printf("[Notifiee] Connected: %s <-> %s\n", conn.LocalMultiaddr(), conn.RemoteMultiaddr())
+}
+func (cl *ConnLogger) Disconnected(net network.Network, conn network.Conn) {
+	fmt.Printf("[Notifiee] Disconnected: %s <-> %s\n", conn.LocalMultiaddr(), conn.RemoteMultiaddr())
+}
+func (cl *ConnLogger) OpenedStream(net network.Network, stream network.Stream) {
+	fmt.Printf("[Notifiee] OpenedStream: %s -> %s\n", stream.Conn().LocalMultiaddr(), stream.Conn().RemoteMultiaddr())
+}
+func (cl *ConnLogger) ClosedStream(net network.Network, stream network.Stream) {
+	fmt.Printf("[Notifiee] ClosedStream: %s -> %s\n", stream.Conn().LocalMultiaddr(), stream.Conn().RemoteMultiaddr())
 }
 
 func initPeer(cfg *config.Config) (*PeerInfo, error) {
@@ -51,11 +69,19 @@ func initPeer(cfg *config.Config) (*PeerInfo, error) {
 		libp2p.Identity(privKeyPeer),
 		libp2p.NoListenAddrs,
 		libp2p.EnableRelay(),
+		libp2p.EnableHolePunching(),
 	)
 	if err != nil {
 		log.Printf("Failed to create node: %v", err)
 		return nil, err
 	}
+	// Register Notifiee for live connection transitions
+	peerHost.Network().Notify(&ConnLogger{})
+	peerNat, err := autonat.New(peerHost)
+	if err != nil {
+		fmt.Println("AutoNAT failed:", err)
+	}
+	fmt.Println("AutoNAT status:", peerNat.Status())
 	peerHost.SetStreamHandler("/customprotocol", func(s network.Stream) {
 		fmt.Println("It works")
 		s.Close()
@@ -103,11 +129,19 @@ func (p *PeerInfo) connectPeer(targetPeerID string) error {
 		log.Printf("Unexpected error here. Failed to connect peer to target peer: %v", err)
 		return err
 	}
+	for _, conn := range p.Host.Network().ConnsToPeer(targetID) {
+		remoteAddr := conn.RemoteMultiaddr().String()
+
+		if strings.Contains(remoteAddr, "p2p-circuit") {
+			fmt.Printf("🔁 Connected to %s via RELAY: %s\n", targetID, remoteAddr)
+		} else {
+			fmt.Printf("📡 Connected to %s via DIRECT (Hole Punched): %s\n", targetID, remoteAddr)
+		}
+	}
 	log.Printf("Connected to peer %s via relay %s", targetPeerID, p.RelayID)
 	return nil
 }
 
-// sendMessage opens a stream to the target peer and sends a message
 func (p *PeerInfo) sendMessage(targetPeerID string, message string) error {
 	targetID, err := peer.Decode(targetPeerID)
 	if err != nil {
@@ -163,13 +197,14 @@ func RunPeer(cfg *config.Config) {
 			cmd, arg := fields[0], fields[1]
 			msg := ""
 			if cmd == "send" && arg != "" && msg != "" {
-				err := peerInfo.connectPeer(arg)
-				if err != nil {
-					fmt.Printf("ConnectPeer error: %v\n", err)
-				}
 				err = peerInfo.sendMessage(arg, msg)
 				if err != nil {
 					fmt.Printf("SendMessage error: %v\n", err)
+				}
+			} else if cmd == "con" && arg != "" {
+				err := peerInfo.connectPeer(arg)
+				if err != nil {
+					fmt.Printf("ConnectPeer error: %v\n", err)
 				}
 			}
 		}

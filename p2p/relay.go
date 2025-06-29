@@ -29,7 +29,8 @@ func RunRelay(cfg *config.Config) {
 			adv, _ := ma.NewMultiaddr(advertiseAddr)
 			return []ma.Multiaddr{adv}
 		}),
-		libp2p.EnableHolePunching(),
+		libp2p.EnableRelayService(),
+		libp2p.EnableNATService(),
 	)
 	if err != nil {
 		fmt.Printf("Failed to create relay: %v\n", err)
