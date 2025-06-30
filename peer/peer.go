@@ -18,7 +18,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/protocol"
 	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
-	autonat "github.com/libp2p/go-libp2p/p2p/host/autonat"
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
 	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
 	ma "github.com/multiformats/go-multiaddr"
@@ -58,7 +57,6 @@ func (cl *ConnLogger) ClosedStream(net network.Network, stream network.Stream) {
 }
 
 func initPeer(cfg *config.Config) (*PeerInfo, error) {
-	// priv key is for relay ID
 	privKeyRelay, err := utils.DecodePrivateKey(cfg.RelayID)
 	if err != nil {
 		fmt.Printf("Failed to decode private key: %v\n", err)
@@ -140,33 +138,19 @@ func initPeer(cfg *config.Config) (*PeerInfo, error) {
 			fmt.Println("Found our own peer:", peer.ID)
 			continue
 		}
-		if peer.ID.String() == "12D3KooW9zR6yc4G3G3bZ34dgLabT7ui5zDcMJYrLQ2iwWipRHbC" {
-			fmt.Println("======================Found target peer=======================")
-			continue
-		}
 		fmt.Println("Connecting to:", peer.ID)
 		_, err := peerHost.NewStream(ctx, peer.ID, protocol.ID("/customprotocol"))
 
 		if err != nil {
 			fmt.Println("Connection failed:", err)
 			continue
-		} else {
-			// rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
-
-			// go writeData(rw)
-			// go readData(rw)
 		}
-
-		// fmt.Println("Connected to:", peer)
+		// TODO: we can send the peer ID to channel and list all the connected peers
+		// maybe we can display it in the UI
 	}
 
 	// Register Notifiee for live connection transitions
 	peerHost.Network().Notify(&ConnLogger{})
-	peerNat, err := autonat.New(peerHost)
-	if err != nil {
-		fmt.Println("AutoNAT failed:", err)
-	}
-	fmt.Println("AutoNAT status:", peerNat.Status())
 	peerHost.SetStreamHandler("/customprotocol", func(s network.Stream) {
 		buf := make([]byte, 1024)
 		n, err := s.Read(buf)
