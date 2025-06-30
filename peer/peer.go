@@ -78,6 +78,7 @@ func initPeer(cfg *config.Config) (*PeerInfo, error) {
 		fmt.Printf("Failed to decode private key: %v\n", err)
 		return nil, err
 	}
+	listenAddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%s", cfg.PeerPort)
 	peerHost, err := libp2p.New(
 		libp2p.Identity(privKeyPeer),
 		libp2p.NoListenAddrs,
@@ -87,7 +88,7 @@ func initPeer(cfg *config.Config) (*PeerInfo, error) {
 		libp2p.DefaultMuxers,
 		libp2p.DefaultSecurity,
 		libp2p.NATPortMap(),
-		// libp2p.ListenAddrs([]ma.Multiaddr(config.ListenAddresses)...),
+		libp2p.ListenAddrStrings(listenAddr),
 	)
 	if err != nil {
 		log.Printf("Failed to create node: %v", err)
@@ -135,6 +136,7 @@ func initPeer(cfg *config.Config) (*PeerInfo, error) {
 
 	for peer := range peerChan {
 		if peer.ID == peerHost.ID() {
+			fmt.Println("Found our own peer:", peer.ID)
 			continue
 		}
 		fmt.Println("Found peer:", peer)
