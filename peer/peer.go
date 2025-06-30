@@ -15,6 +15,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/protocol"
 	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
 	autonat "github.com/libp2p/go-libp2p/p2p/host/autonat"
@@ -139,21 +140,22 @@ func initPeer(cfg *config.Config) (*PeerInfo, error) {
 			fmt.Println("Found our own peer:", peer.ID)
 			continue
 		}
-		fmt.Println("Found peer:", peer)
-		fmt.Println("Peer ID:", peer.ID)
+		if peer.ID.String() == "12D3KooW9zR6yc4G3G3bZ34dgLabT7ui5zDcMJYrLQ2iwWipRHbC" {
+			fmt.Println("======================Found target peer=======================")
+			continue
+		}
+		fmt.Println("Connecting to:", peer.ID)
+		_, err := peerHost.NewStream(ctx, peer.ID, protocol.ID("/customprotocol"))
 
-		// fmt.Println("Connecting to:", peer)
-		// stream, err := peerHost.NewStream(ctx, peer.ID, protocol.ID("/customprotocol"))
+		if err != nil {
+			fmt.Println("Connection failed:", err)
+			continue
+		} else {
+			// rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
 
-		// if err != nil {
-		// 	fmt.Println("Connection failed:", err)
-		// 	continue
-		// } else {
-		// 	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
-
-		// 	go writeData(rw)
-		// 	go readData(rw)
-		// }
+			// go writeData(rw)
+			// go readData(rw)
+		}
 
 		// fmt.Println("Connected to:", peer)
 	}
