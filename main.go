@@ -97,6 +97,12 @@ func main() {
 				if err := chat.SendPrivateMessage("/customprotocol", p.Host, nil, p.TargetPeerID, msg); err != nil {
 					fmt.Printf("Failed to send message: %v\n", err)
 				}
+			case "genkey":
+				key, err := relay.GenerateStaticRelayKey()
+				if err != nil {
+					fmt.Printf("Failed to generate key: %v\n", err)
+				}
+				fmt.Println(key)
 			case "exit":
 				fmt.Println("Exiting peer...")
 				os.Exit(0)
