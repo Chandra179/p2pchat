@@ -2,14 +2,20 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"flag"
 	"fmt"
 	"log"
 	"os"
+	"p2p/chat"
 	"p2p/config"
-	"p2p/peer"
+	mypeer "p2p/peer"
 	"p2p/relay"
 	"strings"
+
+	ma "github.com/multiformats/go-multiaddr"
+
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 func main() {
@@ -22,7 +28,6 @@ func main() {
 	}
 
 	cfg := config.LoadConfig()
-	peerInfo := peer.PeerInfo{}
 
 	switch *mode {
 	case "relay":
@@ -30,11 +35,10 @@ func main() {
 		relay.RunRelay(cfg)
 	case "peer":
 		fmt.Println("Running in peer mode...")
-		p, err := peer.RunPeer(cfg)
+		p, err := mypeer.InitPeer(cfg)
 		if err != nil {
-			log.Fatalf("Failed to run peer: %v", err)
+			log.Fatalf("Failed to init peer: %v", err)
 		}
-		peerInfo = *p
 		// Enter REPL for commands
 		fmt.Println("Peer started. Enter commands: 'con <targetpeerid>', 'send <message>', or 'exit'.")
 		scanner := bufio.NewScanner(os.Stdin)
@@ -55,8 +59,34 @@ func main() {
 					continue
 				}
 				targetPeerID := fields[1]
-				if err := peerInfo.ConnectPeer(targetPeerID); err != nil {
+				decodedPeerID, err := peer.Decode(targetPeerID)
+				if err != nil {
+					fmt.Printf("Invalid peer ID: %v\n", err)
+					continue
+				}
+				peerInfo := peer.AddrInfo{
+					ID:    decodedPeerID,
+					Addrs: []ma.Multiaddr{},
+				}
+				if err := p.ConnectWithFallback(
+					context.Background(),
+					p.Host,
+					p.WithDirect(peerInfo),
+					p.WithRelayFallback(cfg.RelayID, targetPeerID)); err != nil {
 					fmt.Printf("Failed to connect to peer: %v\n", err)
+				}
+			case "find":
+				dm, err := mypeer.InitDHT(context.Background(), p.Host, cfg.BootstrapAddrs)
+				if err != nil {
+					fmt.Printf("Failed to init DHT: %v\n", err)
+				}
+				peers, err := dm.FindPeers(context.Background(), "/customprotocol")
+				if err != nil {
+					fmt.Printf("Failed to find peers: %v\n", err)
+					continue
+				}
+				for peer := range peers {
+					fmt.Println("Found peer:", peer.ID)
 				}
 			case "send":
 				if len(fields) < 2 {
@@ -64,7 +94,7 @@ func main() {
 					continue
 				}
 				msg := strings.Join(fields[1:], " ")
-				if err := peerInfo.SendMessage(msg); err != nil {
+				if err := chat.SendPrivateMessage("/customprotocol", p.Host, nil, p.TargetPeerID, msg); err != nil {
 					fmt.Printf("Failed to send message: %v\n", err)
 				}
 			case "exit":

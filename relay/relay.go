@@ -21,7 +21,7 @@ func RunRelay(cfg *config.Config) {
 	}
 
 	listenAddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%s", cfg.RelayPort)
-	advertiseAddr := fmt.Sprintf("/ip4/%s/tcp/%s", cfg.PublicIP, cfg.RelayPort)
+	advertiseAddr := fmt.Sprintf("/ip4/%s/tcp/%s", cfg.RelayIP, cfg.RelayPort)
 
 	relay1, err := libp2p.New(
 		libp2p.Identity(privKey),
