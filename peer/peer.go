@@ -10,6 +10,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
+	"github.com/multiformats/go-multiaddr"
 )
 
 type PeerInfo struct {
@@ -25,7 +26,10 @@ func InitPeer(cfg *config.Config) (*PeerInfo, error) {
 		fmt.Printf("Failed to decode private key: %v\n", err)
 		return nil, err
 	}
-	listenAddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%s", cfg.PeerPort)
+	listenAddr, err := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%s", cfg.PeerPort))
+	if err != nil {
+		return nil, fmt.Errorf("invalid listen address: %w", err)
+	}
 	peerHost, err := libp2p.New(
 		libp2p.Identity(privKeyPeer),
 		libp2p.NoListenAddrs,
@@ -34,7 +38,7 @@ func InitPeer(cfg *config.Config) (*PeerInfo, error) {
 		libp2p.DefaultMuxers,
 		libp2p.DefaultSecurity,
 		libp2p.NATPortMap(),
-		libp2p.ListenAddrStrings(listenAddr),
+		libp2p.ListenAddrs(listenAddr),
 		// libp2p.EnableAutoRelayWithStaticRelays(),
 	)
 	if err != nil {
