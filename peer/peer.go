@@ -28,6 +28,7 @@ func InitPeer(cfg *config.Config) (*PeerInfo, error) {
 	listenAddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%s", cfg.PeerPort)
 	peerHost, err := libp2p.New(
 		libp2p.Identity(privKeyPeer),
+		libp2p.NoListenAddrs,
 		libp2p.EnableHolePunching(),
 		libp2p.DefaultTransports,
 		libp2p.DefaultMuxers,
