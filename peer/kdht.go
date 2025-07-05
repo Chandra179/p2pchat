@@ -3,7 +3,6 @@ package peer
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -37,18 +36,20 @@ func InitDHT(ctx context.Context, h host.Host, bootstrapAddrs []string) (*DHTMan
 	if err != nil {
 		return nil, err
 	}
-	for _, addr := range bootstrapAddrs {
-		if strings.TrimSpace(addr) == "" {
-			continue
-		}
-		peerInfo, err := ParseMultiAddr(addr)
+	dft := dht.DefaultBootstrapPeers
+	for _, addr := range dft {
+		// if strings.TrimSpace(addr) == "" {
+		// 	continue
+		// }
+		// peerInfo, err := ParseMultiAddr(addr)
+		// if err != nil {
+		// 	fmt.Println("Invalid bootstrap addr:", addr, err)
+		// 	continue
+		// }
+		peerinfo, _ := peer.AddrInfoFromP2pAddr(addr)
+		err = h.Connect(ctx, *peerinfo)
 		if err != nil {
-			fmt.Println("Invalid bootstrap addr:", addr, err)
-			continue
-		}
-		err = h.Connect(ctx, *peerInfo)
-		if err != nil {
-			fmt.Println("Failed to connect to bootstrap peer:", peerInfo.ID, err)
+			fmt.Println("Failed to connect to bootstrap peer:", peerinfo.ID, err)
 			continue
 		}
 	}
