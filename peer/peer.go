@@ -45,7 +45,7 @@ func InitPeer(cfg *config.Config) (*PeerInfo, error) {
 		log.Printf("Failed to create node: %v", err)
 		return nil, err
 	}
-	peerHost.Network().Notify(&ConnLogger{})
+	// peerHost.Network().Notify(&ConnLogger{})
 	fmt.Println("Peer ID:", peerHost.ID())
 	return &PeerInfo{Host: peerHost}, nil
 }
