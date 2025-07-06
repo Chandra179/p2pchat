@@ -38,11 +38,11 @@ func InitPeerHost(cfg *config.Config) (*PeerInfo, error) {
 	peerHost, err := libp2p.New(
 		libp2p.Identity(privKeyPeer),
 		libp2p.NoListenAddrs,
-		// libp2p.EnableHolePunching(),
+		libp2p.EnableHolePunching(),
 		libp2p.DefaultTransports,
 		libp2p.DefaultMuxers,
 		libp2p.DefaultSecurity,
-		// libp2p.NATPortMap(),
+		libp2p.NATPortMap(),
 		libp2p.ListenAddrs(listenAddr),
 		// libp2p.EnableAutoRelayWithStaticRelays(
 		// 	[]peer.AddrInfo{
@@ -67,10 +67,8 @@ func InitPeerHost(cfg *config.Config) (*PeerInfo, error) {
 	return &PeerInfo{Host: peerHost, PrivKey: privKeyPeer}, nil
 }
 
-/*
-Hosts that want to have messages relayed on their behalf need to reserve a slot
-with the circuit relay service host
-*/
+// Hosts that want to have messages relayed on their behalf need to reserve a slot
+// with the circuit relay service host
 func (p *PeerInfo) reserveRelay() {
 	relayinfo := peer.AddrInfo{}
 	_, err := client.Reserve(context.Background(), p.Host, relayinfo)
