@@ -14,7 +14,6 @@ type Config struct {
 	RelayID        string
 	PeerID         string
 	RelayIP        string
-	TargetPeerID   string
 	BootstrapAddrs []string
 }
 
@@ -48,7 +47,6 @@ func LoadConfig() *Config {
 		RelayID:        os.Getenv("RELAY_ID"),
 		PeerID:         os.Getenv("PEER_ID"),
 		RelayIP:        os.Getenv("RELAY_IP"),
-		TargetPeerID:   os.Getenv("TARGET_PEER_ID"),
 		BootstrapAddrs: bootstrapAddrs,
 	}
 }

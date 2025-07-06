@@ -27,7 +27,10 @@ func (p *PeerInfo) ConnectWithFallback(ctx context.Context, h host.Host, opts ..
 func (p *PeerInfo) WithDirect(peerInfo peer.AddrInfo) ConnectOption {
 	return func(ctx context.Context, h host.Host) error {
 		log.Println("Trying direct (auto hole punch + UPnP)")
-		return h.Connect(ctx, peerInfo)
+		if err := h.Connect(ctx, peerInfo); err != nil {
+			return fmt.Errorf("direct connect failed: %w", err)
+		}
+		return nil
 	}
 }
 
@@ -45,17 +48,13 @@ func (p *PeerInfo) WithRelayFallback(relayID peer.ID, targetPeerID string) Conne
 		if err != nil {
 			return fmt.Errorf("invalid target peer ID: %w", err)
 		}
-
 		targetPeer := peer.AddrInfo{
 			ID:    targetID,
 			Addrs: []ma.Multiaddr{targetRelayaddr},
 		}
-
 		if err := h.Connect(ctx, targetPeer); err != nil {
 			return fmt.Errorf("relay connect failed: %w", err)
 		}
-
-		p.TargetPeerID = targetID
 		return nil
 	}
 }

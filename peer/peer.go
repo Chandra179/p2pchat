@@ -7,6 +7,7 @@ import (
 	"p2p/utils"
 
 	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
@@ -14,13 +15,13 @@ import (
 )
 
 type PeerInfo struct {
-	RoutedHost   rhost.RoutedHost
-	PeerID       peer.ID
-	TargetPeerID peer.ID
-	Host         host.Host
+	RoutedHost rhost.RoutedHost
+	PeerID     peer.ID
+	Host       host.Host
+	PrivKey    crypto.PrivKey
 }
 
-func InitPeer(cfg *config.Config) (*PeerInfo, error) {
+func InitPeerHost(cfg *config.Config) (*PeerInfo, error) {
 	privKeyPeer, err := utils.DecodePrivateKey(cfg.PeerID)
 	if err != nil {
 		fmt.Printf("Failed to decode private key: %v\n", err)
@@ -47,5 +48,5 @@ func InitPeer(cfg *config.Config) (*PeerInfo, error) {
 	}
 	// peerHost.Network().Notify(&ConnLogger{})
 	fmt.Println("Peer ID:", peerHost.ID())
-	return &PeerInfo{Host: peerHost}, nil
+	return &PeerInfo{Host: peerHost, PrivKey: privKeyPeer}, nil
 }

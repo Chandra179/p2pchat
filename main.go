@@ -11,9 +11,8 @@ import (
 	"p2p/config"
 	mypeer "p2p/peer"
 	"p2p/relay"
+	"p2p/utils"
 	"strings"
-
-	"encoding/base64"
 
 	ma "github.com/multiformats/go-multiaddr"
 
@@ -39,7 +38,7 @@ func main() {
 		relay.RunRelay(cfg)
 	case "peer":
 		fmt.Println("Running in peer mode...")
-		p, err := mypeer.InitPeer(cfg)
+		p, err := mypeer.InitPeerHost(cfg)
 		if err != nil {
 			log.Fatalf("Failed to init peer: %v", err)
 		}
@@ -68,12 +67,12 @@ func main() {
 					fmt.Printf("Invalid peer ID: %v\n", err)
 					continue
 				}
-				decodedRelayIDBytes, err := base64.StdEncoding.DecodeString(cfg.RelayID)
+				relayPrivKey, err := utils.DecodePrivateKey(cfg.RelayID)
 				if err != nil {
 					fmt.Printf("Invalid relay ID (base64 decode): %v\n", err)
 					continue
 				}
-				decodedRelayID, err := peer.IDFromBytes(decodedRelayIDBytes)
+				relayID, err := peer.IDFromPrivateKey(relayPrivKey)
 				if err != nil {
 					fmt.Printf("Invalid relay ID: %v\n", err)
 					continue
@@ -86,9 +85,10 @@ func main() {
 					context.Background(),
 					p.Host,
 					p.WithDirect(peerInfo),
-					p.WithRelayFallback(decodedRelayID, targetPeerID)); err != nil {
+					p.WithRelayFallback(relayID, targetPeerID)); err != nil {
 					fmt.Printf("Failed to connect to peer: %v\n", err)
 				}
+				fmt.Println("connected to peer:", targetPeerID)
 			case "find":
 				dm, err := mypeer.InitDHT(context.Background(), p.Host, cfg.BootstrapAddrs)
 				if err != nil {
@@ -128,11 +128,16 @@ func main() {
 					fmt.Printf("Invalid peer ID: %v\n", err)
 					continue
 				}
-				if err := chat.SendPrivateMessage("/customprotocol", p.Host, nil, decodedPeerID, msg); err != nil {
+				privKey, err := utils.DecodePrivateKey(cfg.PeerID)
+				if err != nil {
+					fmt.Printf("Failed to decode private key: %v\n", err)
+					return
+				}
+				if err := chat.SendPrivateMessage("/customprotocol", p.Host, privKey, decodedPeerID, msg); err != nil {
 					fmt.Printf("Failed to send message: %v\n", err)
 				}
 			case "genkey":
-				key, err := relay.GenerateStaticRelayKey()
+				key, err := utils.GenerateStaticRelayKey()
 				if err != nil {
 					fmt.Printf("Failed to generate key: %v\n", err)
 				}
