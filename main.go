@@ -93,12 +93,18 @@ func main() {
 					fmt.Println("Found peer:", peer.ID)
 				}
 			case "send":
-				if len(fields) < 2 {
-					fmt.Println("Usage: send <message>")
+				if len(fields) < 3 {
+					fmt.Println("Usage: send <targetpeerid> <message>")
 					continue
 				}
-				msg := strings.Join(fields[1:], " ")
-				if err := chat.SendPrivateMessage("/customprotocol", p.Host, nil, p.TargetPeerID, msg); err != nil {
+				targetPeerIDStr := fields[1]
+				msg := strings.Join(fields[2:], " ")
+				decodedPeerID, err := peer.Decode(targetPeerIDStr)
+				if err != nil {
+					fmt.Printf("Invalid peer ID: %v\n", err)
+					continue
+				}
+				if err := chat.SendPrivateMessage("/customprotocol", p.Host, nil, decodedPeerID, msg); err != nil {
 					fmt.Printf("Failed to send message: %v\n", err)
 				}
 			case "genkey":

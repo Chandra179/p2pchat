@@ -77,7 +77,7 @@ func SendPrivateMessage(p protocol.ID, h host.Host, priv crypto.PrivKey, peerID 
 
 func sendEncryptedMessage(p protocol.ID, h host.Host, session *SessionKey, peerID peer.ID, text string) error {
 	operation := func() error {
-		stream, err := h.NewStream(context.TODO(), peerID, p)
+		stream, err := h.NewStream(context.Background(), peerID, p)
 		if err != nil {
 			return backoff.Permanent(err)
 		}
@@ -208,7 +208,7 @@ func performRekey(p protocol.ID, h host.Host, priv crypto.PrivKey, peerID peer.I
 
 func establishSessionWithPeer(p protocol.ID, h host.Host, priv crypto.PrivKey, peerID peer.ID) error {
 	operation := func() error {
-		stream, err := h.NewStream(context.TODO(), peerID, p)
+		stream, err := h.NewStream(context.Background(), peerID, p)
 		if err != nil {
 			return backoff.Permanent(err)
 		}
