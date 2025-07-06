@@ -80,6 +80,10 @@ func main() {
 				if err != nil {
 					fmt.Printf("Failed to init DHT: %v\n", err)
 				}
+				err = dm.AdvertiseHost(context.Background(), "/customprotocol")
+				if err != nil {
+					fmt.Printf("Failed to advertise host: %v\n", err)
+				}
 				peers, err := dm.FindPeers(context.Background(), "/customprotocol")
 				if err != nil {
 					fmt.Printf("Failed to find peers: %v\n", err)
