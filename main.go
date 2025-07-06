@@ -142,9 +142,6 @@ func main() {
 					fmt.Printf("Failed to generate key: %v\n", err)
 				}
 				fmt.Println(key)
-			case "exit":
-				fmt.Println("Exiting peer...")
-				os.Exit(0)
 			default:
 				fmt.Println("Unknown command. Use 'con <targetpeerid>', 'send <message>', or 'exit'.")
 			}

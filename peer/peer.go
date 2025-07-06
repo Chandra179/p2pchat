@@ -9,6 +9,7 @@ import (
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
 	"github.com/multiformats/go-multiaddr"
@@ -46,6 +47,17 @@ func InitPeerHost(cfg *config.Config) (*PeerInfo, error) {
 		log.Printf("Failed to create node: %v", err)
 		return nil, err
 	}
+	// Register a simple stream handler for /customprotocol
+	peerHost.SetStreamHandler("/customprotocol", func(s network.Stream) {
+		defer s.Close()
+		buf := make([]byte, 4096)
+		n, err := s.Read(buf)
+		if err != nil {
+			fmt.Println("Error reading from stream:", err)
+			return
+		}
+		fmt.Printf("[RECV] /customprotocol: %s\n", string(buf[:n]))
+	})
 	// peerHost.Network().Notify(&ConnLogger{})
 	fmt.Println("Peer ID:", peerHost.ID())
 	return &PeerInfo{Host: peerHost, PrivKey: privKeyPeer}, nil

@@ -17,7 +17,6 @@ func RunRelay(cfg *config.Config) {
 		fmt.Printf("Failed to decode private key: %v\n", err)
 		return
 	}
-
 	listenAddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%s", cfg.RelayPort)
 	advertiseAddr := fmt.Sprintf("/ip4/%s/tcp/%s", cfg.RelayIP, cfg.RelayPort)
 
