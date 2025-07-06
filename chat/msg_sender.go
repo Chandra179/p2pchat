@@ -210,6 +210,7 @@ func establishSessionWithPeer(p protocol.ID, h host.Host, priv crypto.PrivKey, p
 	operation := func() error {
 		stream, err := h.NewStream(context.Background(), peerID, p)
 		if err != nil {
+			fmt.Println("err creating establish session peer: ", err)
 			return backoff.Permanent(err)
 		}
 		defer stream.Close()
@@ -222,6 +223,7 @@ func establishSessionWithPeer(p protocol.ID, h host.Host, priv crypto.PrivKey, p
 		// Create session (as initiator)
 		session, keyExchange, err := sessionManager.InitiateSession(peerID.String(), priv, true)
 		if err != nil {
+			fmt.Println("err pub key establish session")
 			return backoff.Permanent(err)
 		}
 
@@ -233,6 +235,7 @@ func establishSessionWithPeer(p protocol.ID, h host.Host, priv crypto.PrivKey, p
 
 		encoder := json.NewEncoder(stream)
 		if err := encoder.Encode(msg); err != nil {
+			fmt.Println("err encode message establish session")
 			return backoff.Permanent(err)
 		}
 
@@ -240,6 +243,7 @@ func establishSessionWithPeer(p protocol.ID, h host.Host, priv crypto.PrivKey, p
 		var response ProtocolMessage
 		decoder := json.NewDecoder(bufio.NewReader(stream))
 		if err := decoder.Decode(&response); err != nil {
+			fmt.Println("err decode message")
 			return err
 		}
 
@@ -251,10 +255,12 @@ func establishSessionWithPeer(p protocol.ID, h host.Host, priv crypto.PrivKey, p
 		payloadBytes, _ := json.Marshal(response.Payload)
 		var remoteKeyExchange SessionKeyExchange
 		if err := json.Unmarshal(payloadBytes, &remoteKeyExchange); err != nil {
+			fmt.Println("err unmarshal remote key")
 			return backoff.Permanent(err)
 		}
 
 		if err := sessionManager.CompleteSession(session, &remoteKeyExchange, pub); err != nil {
+			fmt.Println("err complete session")
 			return backoff.Permanent(err)
 		}
 

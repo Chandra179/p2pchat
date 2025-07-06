@@ -3,6 +3,7 @@ package peer
 import (
 	"fmt"
 	"log"
+	"p2p/chat"
 	"p2p/config"
 	"p2p/utils"
 
@@ -49,14 +50,7 @@ func InitPeerHost(cfg *config.Config) (*PeerInfo, error) {
 	}
 	// Register a simple stream handler for /customprotocol
 	peerHost.SetStreamHandler("/customprotocol", func(s network.Stream) {
-		defer s.Close()
-		buf := make([]byte, 4096)
-		n, err := s.Read(buf)
-		if err != nil {
-			fmt.Println("Error reading from stream:", err)
-			return
-		}
-		fmt.Printf("[RECV] /customprotocol: %s\n", string(buf[:n]))
+		chat.HandlePrivateMessage(s, privKeyPeer)
 	})
 	// peerHost.Network().Notify(&ConnLogger{})
 	fmt.Println("Peer ID:", peerHost.ID())
