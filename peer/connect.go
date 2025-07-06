@@ -32,7 +32,7 @@ func (p *PeerInfo) WithDirect(peerInfo peer.AddrInfo) ConnectOption {
 }
 
 // Relay circuit connect using relay peer ID and target peer ID
-func (p *PeerInfo) WithRelayFallback(relayID string, targetPeerID string) ConnectOption {
+func (p *PeerInfo) WithRelayFallback(relayID peer.ID, targetPeerID string) ConnectOption {
 	return func(ctx context.Context, h host.Host) error {
 		log.Println("Trying relay circuit fallback")
 		addrStr := fmt.Sprintf("/p2p/%s/p2p-circuit/p2p/%s", relayID, targetPeerID)

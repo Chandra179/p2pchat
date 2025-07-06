@@ -13,6 +13,8 @@ import (
 	"p2p/relay"
 	"strings"
 
+	"encoding/base64"
+
 	ma "github.com/multiformats/go-multiaddr"
 
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -66,6 +68,16 @@ func main() {
 					fmt.Printf("Invalid peer ID: %v\n", err)
 					continue
 				}
+				decodedRelayIDBytes, err := base64.StdEncoding.DecodeString(cfg.RelayID)
+				if err != nil {
+					fmt.Printf("Invalid relay ID (base64 decode): %v\n", err)
+					continue
+				}
+				decodedRelayID, err := peer.IDFromBytes(decodedRelayIDBytes)
+				if err != nil {
+					fmt.Printf("Invalid relay ID: %v\n", err)
+					continue
+				}
 				peerInfo := peer.AddrInfo{
 					ID:    decodedPeerID,
 					Addrs: foundPeers[targetPeerID], // use foundPeers if available
@@ -74,7 +86,7 @@ func main() {
 					context.Background(),
 					p.Host,
 					p.WithDirect(peerInfo),
-					p.WithRelayFallback(cfg.RelayID, targetPeerID)); err != nil {
+					p.WithRelayFallback(decodedRelayID, targetPeerID)); err != nil {
 					fmt.Printf("Failed to connect to peer: %v\n", err)
 				}
 			case "find":
