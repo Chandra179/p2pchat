@@ -29,6 +29,8 @@ func main() {
 
 	cfg := config.LoadConfig()
 
+	var foundPeers map[string][]ma.Multiaddr
+
 	switch *mode {
 	case "relay":
 		fmt.Println("Running in relay mode...")
@@ -55,7 +57,7 @@ func main() {
 			switch fields[0] {
 			case "con":
 				if len(fields) < 2 {
-					fmt.Println("Usage: con <targetpeerid>")
+					fmt.Println("Usage: con <targetpeerid>|all")
 					continue
 				}
 				targetPeerID := fields[1]
@@ -66,7 +68,7 @@ func main() {
 				}
 				peerInfo := peer.AddrInfo{
 					ID:    decodedPeerID,
-					Addrs: []ma.Multiaddr{},
+					Addrs: foundPeers[targetPeerID], // use foundPeers if available
 				}
 				if err := p.ConnectWithFallback(
 					context.Background(),
@@ -89,9 +91,19 @@ func main() {
 					fmt.Printf("Failed to find peers: %v\n", err)
 					continue
 				}
-				for peer := range peers {
-					fmt.Println("Found peer:", peer.ID)
+				// Store found peers in memory, excluding self
+				if foundPeers == nil {
+					foundPeers = make(map[string][]ma.Multiaddr)
 				}
+				for peer := range peers {
+					if peer.ID == p.Host.ID() {
+						continue // skip self
+					}
+					foundPeers[peer.ID.String()] = peer.Addrs
+					fmt.Println("Found peer:", peer.ID)
+					fmt.Println("Found peer:", peer.Addrs)
+				}
+				fmt.Printf("Total found peers (excluding self): %d\n", len(foundPeers))
 			case "send":
 				if len(fields) < 3 {
 					fmt.Println("Usage: send <targetpeerid> <message>")
