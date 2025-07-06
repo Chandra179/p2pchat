@@ -1,4 +1,4 @@
-package utils
+package cryptoutils
 
 import (
 	"encoding/base64"
@@ -7,7 +7,8 @@ import (
 	"github.com/libp2p/go-libp2p/core/crypto"
 )
 
-func DecodePrivateKey(base64Key string) (crypto.PrivKey, error) {
+// Decode base64 key (Ed25519, RSA, ECDSA, etc...)
+func DecodeBase64Key(base64Key string) (crypto.PrivKey, error) {
 	privBytes, err := base64.StdEncoding.DecodeString(base64Key)
 	if err != nil {
 		return nil, err
@@ -19,8 +20,8 @@ func DecodePrivateKey(base64Key string) (crypto.PrivKey, error) {
 	return privKey, nil
 }
 
-// GenerateStaticRelayKey generates a new Ed25519 private key and returns it as a base64-encoded string.
-func GenerateStaticRelayKey() (string, error) {
+// GenerateEd25519Key generates a new Ed25519 private key and returns it as a base64-encoded string.
+func GenerateEd25519Key() (string, error) {
 	priv, _, err := crypto.GenerateKeyPair(crypto.Ed25519, -1)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate key: %w", err)

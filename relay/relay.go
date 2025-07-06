@@ -3,7 +3,7 @@ package relay
 import (
 	"fmt"
 	"p2p/config"
-	"p2p/utils"
+	"p2p/cryptoutils"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -12,11 +12,12 @@ import (
 )
 
 func RunRelay(cfg *config.Config) {
-	privKey, err := utils.DecodePrivateKey(cfg.RelayID)
+	privKey, err := cryptoutils.DecodeBase64Key(cfg.RelayID)
 	if err != nil {
 		fmt.Printf("Failed to decode private key: %v\n", err)
 		return
 	}
+	// TODO: the port could be different
 	listenAddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%s", cfg.RelayPort)
 	advertiseAddr := fmt.Sprintf("/ip4/%s/tcp/%s", cfg.RelayIP, cfg.RelayPort)
 

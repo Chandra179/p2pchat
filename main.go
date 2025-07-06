@@ -9,9 +9,9 @@ import (
 	"os"
 	"p2p/chat"
 	"p2p/config"
+	"p2p/cryptoutils"
 	mypeer "p2p/peer"
 	"p2p/relay"
-	"p2p/utils"
 	"strings"
 
 	ma "github.com/multiformats/go-multiaddr"
@@ -67,16 +67,16 @@ func main() {
 					fmt.Printf("Invalid peer ID: %v\n", err)
 					continue
 				}
-				relayPrivKey, err := utils.DecodePrivateKey(cfg.RelayID)
-				if err != nil {
-					fmt.Printf("Invalid relay ID (base64 decode): %v\n", err)
-					continue
-				}
-				relayID, err := peer.IDFromPrivateKey(relayPrivKey)
-				if err != nil {
-					fmt.Printf("Invalid relay ID: %v\n", err)
-					continue
-				}
+				// relayPrivKey, err := cryptoutils.DecodeBase64Key(cfg.RelayID)
+				// if err != nil {
+				// 	fmt.Printf("Invalid relay ID (base64 decode): %v\n", err)
+				// 	continue
+				// }
+				// relayID, err := peer.IDFromPrivateKey(relayPrivKey)
+				// if err != nil {
+				// 	fmt.Printf("Invalid relay ID: %v\n", err)
+				// 	continue
+				// }
 				peerInfo := peer.AddrInfo{
 					ID:    decodedPeerID,
 					Addrs: foundPeers[targetPeerID], // use foundPeers if available
@@ -84,13 +84,12 @@ func main() {
 				if err := p.ConnectWithFallback(
 					context.Background(),
 					p.Host,
-					p.WithDirect(peerInfo),
-					p.WithRelayFallback(relayID, targetPeerID)); err != nil {
+					p.WithDirect(peerInfo)); err != nil {
 					fmt.Printf("Failed to connect to peer: %v\n", err)
 				}
 				fmt.Println("connected to peer:", targetPeerID)
 			case "find":
-				dm, err := mypeer.InitDHT(context.Background(), p.Host, cfg.BootstrapAddrs)
+				dm, err := mypeer.InitDHT(context.Background(), p.Host)
 				if err != nil {
 					fmt.Printf("Failed to init DHT: %v\n", err)
 				}
@@ -128,7 +127,7 @@ func main() {
 					fmt.Printf("Invalid peer ID: %v\n", err)
 					continue
 				}
-				privKey, err := utils.DecodePrivateKey(cfg.PeerID)
+				privKey, err := cryptoutils.DecodeBase64Key(cfg.PeerID)
 				if err != nil {
 					fmt.Printf("Failed to decode private key: %v\n", err)
 					return
@@ -137,7 +136,7 @@ func main() {
 					fmt.Printf("Failed to send message: %v\n", err)
 				}
 			case "genkey":
-				key, err := utils.GenerateStaticRelayKey()
+				key, err := cryptoutils.GenerateEd25519Key()
 				if err != nil {
 					fmt.Printf("Failed to generate key: %v\n", err)
 				}

@@ -1,11 +1,12 @@
 package peer
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"p2p/chat"
 	"p2p/config"
-	"p2p/utils"
+	"p2p/cryptoutils"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -13,6 +14,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
+	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
 	"github.com/multiformats/go-multiaddr"
 )
 
@@ -24,7 +26,7 @@ type PeerInfo struct {
 }
 
 func InitPeerHost(cfg *config.Config) (*PeerInfo, error) {
-	privKeyPeer, err := utils.DecodePrivateKey(cfg.PeerID)
+	privKeyPeer, err := cryptoutils.DecodeBase64Key(cfg.PeerID)
 	if err != nil {
 		fmt.Printf("Failed to decode private key: %v\n", err)
 		return nil, err
@@ -42,17 +44,38 @@ func InitPeerHost(cfg *config.Config) (*PeerInfo, error) {
 		libp2p.DefaultSecurity,
 		libp2p.NATPortMap(),
 		libp2p.ListenAddrs(listenAddr),
-		// libp2p.EnableAutoRelayWithStaticRelays(),
+		// libp2p.EnableAutoRelayWithStaticRelays(
+		// 	[]peer.AddrInfo{
+		// 		{
+		// 			ID:    peer.ID("relay-peer-id"),
+		// 			Addrs: []ma.Multiaddr{},
+		// 		},
+		// 	},
+		// ),
 	)
 	if err != nil {
 		log.Printf("Failed to create node: %v", err)
 		return nil, err
 	}
-	// Register a simple stream handler for /customprotocol
+	// TODO: might need seperate this into a new function cause ProtocolID is set when peer send a message to other peer
+	// the protocolID is identifier for a stream like (chat channel name)
 	peerHost.SetStreamHandler("/customprotocol", func(s network.Stream) {
 		chat.HandlePrivateMessage(s, privKeyPeer)
 	})
-	// peerHost.Network().Notify(&ConnLogger{})
+	peerHost.Network().Notify(&ConnLogger{})
 	fmt.Println("Peer ID:", peerHost.ID())
 	return &PeerInfo{Host: peerHost, PrivKey: privKeyPeer}, nil
+}
+
+/*
+Hosts that want to have messages relayed on their behalf need to reserve a slot
+with the circuit relay service host
+*/
+func (p *PeerInfo) reserveRelay() {
+	relayinfo := peer.AddrInfo{}
+	_, err := client.Reserve(context.Background(), p.Host, relayinfo)
+	if err != nil {
+		log.Printf("unreachable2 failed to receive a relay reservation from relay1. %v", err)
+		return
+	}
 }

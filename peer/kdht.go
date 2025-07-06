@@ -9,7 +9,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/routing"
 	discovery "github.com/libp2p/go-libp2p/p2p/discovery/routing"
-	"github.com/multiformats/go-multiaddr"
 )
 
 type DHTManager struct {
@@ -17,35 +16,15 @@ type DHTManager struct {
 	Discovery *discovery.RoutingDiscovery
 }
 
-// ParseMultiAddr parses a string multiaddress into AddrInfo
-func ParseMultiAddr(addr string) (*peer.AddrInfo, error) {
-	maddr, err := multiaddr.NewMultiaddr(addr)
-	if err != nil {
-		return nil, err
-	}
-	ai, err := peer.AddrInfoFromP2pAddr(maddr)
-	if err != nil {
-		return nil, err
-	}
-	return ai, nil
-}
-
 // InitDHT initializes Kademlia DHT with bootstrap peers
-func InitDHT(ctx context.Context, h host.Host, bootstrapAddrs []string) (*DHTManager, error) {
+func InitDHT(ctx context.Context, h host.Host) (*DHTManager, error) {
 	kademliaDHT, err := dht.New(ctx, h, dht.Mode(dht.ModeAuto))
 	if err != nil {
 		return nil, err
 	}
+	//TODO: might need to store the peer addrs in a file, db or storage
 	dft := dht.DefaultBootstrapPeers
 	for _, addr := range dft {
-		// if strings.TrimSpace(addr) == "" {
-		// 	continue
-		// }
-		// peerInfo, err := ParseMultiAddr(addr)
-		// if err != nil {
-		// 	fmt.Println("Invalid bootstrap addr:", addr, err)
-		// 	continue
-		// }
 		peerinfo, _ := peer.AddrInfoFromP2pAddr(addr)
 		err = h.Connect(ctx, *peerinfo)
 		if err != nil {
