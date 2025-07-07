@@ -13,6 +13,7 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 )
@@ -76,7 +77,11 @@ func SendPrivateMessage(p protocol.ID, h host.Host, priv crypto.PrivKey, peerID 
 }
 
 func SendSimple(p protocol.ID, h host.Host, priv crypto.PrivKey, peerID peer.ID, text string) error {
-	stream, err := h.NewStream(context.Background(), peerID, p)
+	stream, err := h.NewStream(
+		network.WithAllowLimitedConn(context.Background(), "customprotocol"),
+		peerID,
+		"/customprotocol",
+	)
 	if err != nil {
 		fmt.Println("err creating stream")
 		return err
