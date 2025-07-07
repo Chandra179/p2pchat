@@ -67,16 +67,16 @@ func main() {
 					fmt.Printf("Invalid peer ID: %v\n", err)
 					continue
 				}
-				// relayPrivKey, err := cryptoutils.DecodeBase64Key(cfg.RelayID)
-				// if err != nil {
-				// 	fmt.Printf("Invalid relay ID (base64 decode): %v\n", err)
-				// 	continue
-				// }
-				// relayID, err := peer.IDFromPrivateKey(relayPrivKey)
-				// if err != nil {
-				// 	fmt.Printf("Invalid relay ID: %v\n", err)
-				// 	continue
-				// }
+				relayPrivKey, err := cryptoutils.DecodeBase64Key(cfg.RelayID)
+				if err != nil {
+					fmt.Printf("Invalid relay ID (base64 decode): %v\n", err)
+					continue
+				}
+				relayID, err := peer.IDFromPrivateKey(relayPrivKey)
+				if err != nil {
+					fmt.Printf("Invalid relay ID: %v\n", err)
+					continue
+				}
 				peerInfo := peer.AddrInfo{
 					ID:    decodedPeerID,
 					Addrs: foundPeers[targetPeerID], // use foundPeers if available
@@ -84,10 +84,10 @@ func main() {
 				if err := p.ConnectWithFallback(
 					context.Background(),
 					p.Host,
-					p.WithDirect(peerInfo)); err != nil {
+					p.WithDirect(peerInfo),
+					p.WithRelayFallback(relayID, targetPeerID)); err != nil {
 					fmt.Printf("Failed to connect to peer: %v\n", err)
 				}
-				fmt.Println("connected to peer:", targetPeerID)
 			case "find":
 				dm, err := mypeer.InitDHT(context.Background(), p.Host)
 				if err != nil {
