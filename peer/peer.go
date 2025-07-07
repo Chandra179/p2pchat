@@ -37,6 +37,7 @@ func InitPeerHost(cfg *config.Config) (*PeerInfo, error) {
 	peerHost, err := libp2p.New(
 		libp2p.Identity(privKeyPeer),
 		libp2p.EnableHolePunching(),
+		libp2p.NATPortMap(),
 		libp2p.EnableRelay(),
 	)
 	if err != nil {
