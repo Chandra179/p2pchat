@@ -42,7 +42,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to init peer: %v", err)
 		}
-		p.ReserveRelay()
+		p.ConnectAndReserveRelay()
 		// Enter REPL for commands
 		fmt.Println("Peer started. Enter commands: 'con <targetpeerid>', 'send <message>', or 'exit'.")
 		scanner := bufio.NewScanner(os.Stdin)
