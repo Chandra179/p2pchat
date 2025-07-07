@@ -16,7 +16,6 @@ import (
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
 	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
 	"github.com/multiformats/go-multiaddr"
-	ma "github.com/multiformats/go-multiaddr"
 )
 
 type PeerInfo struct {
@@ -44,16 +43,7 @@ func InitPeerHost(cfg *config.Config) (*PeerInfo, error) {
 		libp2p.DefaultSecurity,
 		libp2p.NATPortMap(),
 		libp2p.ListenAddrs(listenAddr),
-		libp2p.EnableAutoRelayWithStaticRelays(
-			[]peer.AddrInfo{
-				{
-					ID: peer.ID("12D3KooWKM7aEjf3XtuWJt9SJTGSmWUbf2t7TXZFVkEhB6MperFf"),
-					Addrs: []ma.Multiaddr{
-						ma.StringCast("/ip4/35.208.121.167/tcp/9000"),
-					},
-				},
-			},
-		),
+		libp2p.EnableRelay(),
 	)
 	if err != nil {
 		log.Printf("Failed to create node: %v", err)
