@@ -44,7 +44,6 @@ func InitPeerHost(cfg *config.Config) (*PeerInfo, error) {
 		libp2p.DefaultSecurity,
 		libp2p.NATPortMap(),
 		libp2p.ListenAddrs(listenAddr),
-		libp2p.ForceReachabilityPrivate(),
 		libp2p.EnableAutoRelayWithStaticRelays(
 			[]peer.AddrInfo{
 				{
@@ -72,7 +71,7 @@ func InitPeerHost(cfg *config.Config) (*PeerInfo, error) {
 
 // Hosts that want to have messages relayed on their behalf need to reserve a slot
 // with the circuit relay service host
-func (p *PeerInfo) reserveRelay() {
+func (p *PeerInfo) ReserveRelay() {
 	relayinfo := peer.AddrInfo{}
 	_, err := client.Reserve(context.Background(), p.Host, relayinfo)
 	if err != nil {
