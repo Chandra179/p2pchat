@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"p2p/cryptoutils"
+	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -77,6 +78,7 @@ func SendPrivateMessage(p protocol.ID, h host.Host, priv crypto.PrivKey, peerID 
 }
 
 func SendSimple(p protocol.ID, h host.Host, priv crypto.PrivKey, peerID peer.ID, text string) error {
+
 	stream, err := h.NewStream(
 		network.WithAllowLimitedConn(context.Background(), "customprotocol"),
 		peerID,
@@ -87,6 +89,16 @@ func SendSimple(p protocol.ID, h host.Host, priv crypto.PrivKey, peerID peer.ID,
 		return err
 	}
 	defer stream.Close()
+	conn := stream.Conn()
+	addr := conn.RemoteMultiaddr().String()
+	fmt.Println("Stream connected via:", addr)
+
+	if strings.Contains(addr, "/p2p-circuit/") {
+		fmt.Println("📡 Still relayed")
+	} else {
+		fmt.Println("🚀 Direct connection established")
+	}
+
 	encoder := json.NewEncoder(stream)
 	if err := encoder.Encode("msg 123"); err != nil {
 		return err
