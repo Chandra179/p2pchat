@@ -13,7 +13,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
-	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
 	"github.com/multiformats/go-multiaddr"
 )
 
@@ -86,10 +85,10 @@ func (p *PeerInfo) ConnectAndReserveRelay(relayID string) {
 		log.Printf("Failed to connect unreachable1 and relay1: %v", err)
 		return
 	}
-	_, err = client.Reserve(context.Background(), p.Host, relayinfo)
-	if err != nil {
-		log.Printf("unreachable2 failed to receive a relay reservation from relay1. %v", err)
-		return
-	}
+	// _, err = client.Reserve(context.Background(), p.Host, relayinfo)
+	// if err != nil {
+	// 	log.Printf("unreachable2 failed to receive a relay reservation from relay1. %v", err)
+	// 	return
+	// }
 	fmt.Println("success connect to relay")
 }
