@@ -61,14 +61,24 @@ func InitPeerHost(cfg *config.Config) (*PeerInfo, error) {
 
 // Hosts that want to have messages relayed on their behalf need to reserve a slot
 // with the circuit relay service host
-func (p *PeerInfo) ConnectAndReserveRelay() {
+func (p *PeerInfo) ConnectAndReserveRelay(relayID string) {
 	relayAddr, err := multiaddr.NewMultiaddr("/ip4/35.208.121.167/tcp/9000")
 	if err != nil {
 		log.Printf("Failed to parse relay multiaddr: %v", err)
 		return
 	}
+	key, err := cryptoutils.DecodeBase64Key(relayID)
+	if err != nil {
+		fmt.Printf("Failed to decode private key: %v\n", err)
+		return
+	}
+	id, err := peer.IDFromPrivateKey(key)
+	if err != nil {
+		fmt.Printf("Failed to extract peer id from private key: %v\n", err)
+		return
+	}
 	relayinfo := peer.AddrInfo{
-		ID:    "12D3KooWKM7aEjf3XtuWJt9SJTGSmWUbf2t7TXZFVkEhB6MperFf",
+		ID:    id,
 		Addrs: []multiaddr.Multiaddr{relayAddr},
 	}
 	if err := p.Host.Connect(context.Background(), relayinfo); err != nil {
@@ -80,4 +90,5 @@ func (p *PeerInfo) ConnectAndReserveRelay() {
 		log.Printf("unreachable2 failed to receive a relay reservation from relay1. %v", err)
 		return
 	}
+	fmt.Println("success connect to relay")
 }
