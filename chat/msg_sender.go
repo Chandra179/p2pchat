@@ -75,6 +75,20 @@ func SendPrivateMessage(p protocol.ID, h host.Host, priv crypto.PrivKey, peerID 
 	return sendEncryptedMessage(p, h, session, peerID, text)
 }
 
+func SendSimple(p protocol.ID, h host.Host, priv crypto.PrivKey, peerID peer.ID, text string) error {
+	stream, err := h.NewStream(context.Background(), peerID, p)
+	if err != nil {
+		fmt.Println("err creating stream")
+		return err
+	}
+	defer stream.Close()
+	encoder := json.NewEncoder(stream)
+	if err := encoder.Encode("msg 123"); err != nil {
+		return err
+	}
+	return nil
+}
+
 func sendEncryptedMessage(p protocol.ID, h host.Host, session *SessionKey, peerID peer.ID, text string) error {
 	operation := func() error {
 		stream, err := h.NewStream(context.Background(), peerID, p)

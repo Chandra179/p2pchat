@@ -133,7 +133,7 @@ func main() {
 					fmt.Printf("Failed to decode private key: %v\n", err)
 					return
 				}
-				if err := chat.SendPrivateMessage("/customprotocol", p.Host, privKey, decodedPeerID, msg); err != nil {
+				if err := chat.SendSimple("/customprotocol", p.Host, privKey, decodedPeerID, msg); err != nil {
 					fmt.Printf("Failed to send message: %v\n", err)
 				}
 			case "genkey":

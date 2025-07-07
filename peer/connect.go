@@ -52,10 +52,10 @@ func (p *PeerInfo) WithRelayFallback(relayID peer.ID, targetPeerID string) Conne
 			ID:    targetID,
 			Addrs: []ma.Multiaddr{targetRelayaddr},
 		}
-
 		if err := h.Connect(ctx, targetPeer); err != nil {
 			return fmt.Errorf("relay connect failed: %w", err)
 		}
+		fmt.Println("success connection")
 		return nil
 	}
 }

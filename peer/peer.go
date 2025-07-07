@@ -54,6 +54,7 @@ func InitPeerHost(cfg *config.Config) (*PeerInfo, error) {
 		s.Close()
 		// chat.HandlePrivateMessage(s, privKeyPeer)
 	})
+
 	// peerHost.Network().Notify(&ConnLogger{})
 	fmt.Println("Peer ID:", peerHost.ID())
 	return &PeerInfo{Host: peerHost, PrivKey: privKeyPeer}, nil
