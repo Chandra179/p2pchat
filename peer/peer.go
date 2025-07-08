@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"p2p/chat"
 	"p2p/config"
 	"p2p/cryptoutils"
 
@@ -44,7 +43,6 @@ func InitPeerHost(cfg *config.Config) (*HostInfo, error) {
 	}
 	peerHost.SetStreamHandler("/customprotocol", func(s network.Stream) {
 		log.Println("Awesome! We're now communicating via the relay!")
-		chat.HandlePrivateMessage(s, privKeyPeer)
 		s.Close()
 	})
 
