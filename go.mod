@@ -4,9 +4,6 @@ go 1.24.3
 
 require (
 	filippo.io/edwards25519 v1.1.0
-	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/google/uuid v1.6.0
-	github.com/hashicorp/golang-lru v1.0.2
 	github.com/joho/godotenv v1.5.1
 	github.com/libp2p/go-libp2p v0.42.0
 	github.com/libp2p/go-libp2p-kad-dht v0.33.1
@@ -27,7 +24,9 @@ require (
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/google/gopacket v1.1.19 // indirect
 	github.com/google/pprof v0.0.0-20250607225305-033d6d78b36a // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
+	github.com/hashicorp/golang-lru v1.0.2 // indirect
 	github.com/huin/goupnp v1.3.0 // indirect
 	github.com/ipfs/boxo v0.30.0 // indirect
 	github.com/ipfs/go-cid v0.5.0 // indirect
