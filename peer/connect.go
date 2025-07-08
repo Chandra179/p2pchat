@@ -3,66 +3,28 @@ package peer
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-type ConnectOption func(ctx context.Context, h host.Host) error
-
-func (p *PeerInfo) ConnectWithFallback(ctx context.Context, h host.Host, opts ...ConnectOption) error {
-	for _, opt := range opts {
-		if err := opt(ctx, h); err == nil {
-			return nil
-		} else {
-			log.Println("Fallback failed:", err)
-		}
+func (p *HostInfo) Connect(ctx context.Context, h host.Host, peerInfo peer.AddrInfo, relayID peer.ID) error {
+	if err := h.Connect(ctx, peerInfo); err != nil {
+		return fmt.Errorf("direct connect failed: %w", err)
 	}
-	return fmt.Errorf("all connection methods failed")
-}
-
-// Direct connect using standard peer.AddrInfo
-func (p *PeerInfo) WithDirect(peerInfo peer.AddrInfo) ConnectOption {
-	return func(ctx context.Context, h host.Host) error {
-		log.Println("Trying direct (auto hole punch + UPnP)")
-		if err := h.Connect(ctx, peerInfo); err != nil {
-			return fmt.Errorf("direct connect failed: %w", err)
-		}
-		return nil
+	addrStr := fmt.Sprintf("/p2p/%s/p2p-circuit/p2p/%s", relayID, peerInfo.ID)
+	targetRelayaddr, err := ma.NewMultiaddr(addrStr)
+	if err != nil {
+		return fmt.Errorf("invalid relay multiaddr: %w", err)
 	}
-}
-
-// Relay circuit connect using relay peer ID and target peer ID
-func (p *PeerInfo) WithRelayFallback(relayID peer.ID, targetPeerID string) ConnectOption {
-	return func(ctx context.Context, h host.Host) error {
-		log.Println("Trying relay circuit fallback")
-		addrStr := fmt.Sprintf("/p2p/%s/p2p-circuit/p2p/%s", relayID, targetPeerID)
-		targetRelayaddr, err := ma.NewMultiaddr(addrStr)
-		if err != nil {
-			return fmt.Errorf("invalid relay multiaddr: %w", err)
-		}
-
-		targetID, err := peer.Decode(targetPeerID)
-		if err != nil {
-			return fmt.Errorf("invalid target peer ID: %w", err)
-		}
-		targetPeer := peer.AddrInfo{
-			ID:    targetID,
-			Addrs: []ma.Multiaddr{targetRelayaddr},
-		}
-		if err := h.Connect(ctx, targetPeer); err != nil {
-			return fmt.Errorf("relay connect failed: %w", err)
-		}
-		fmt.Println("success connection")
-		return nil
+	targetPeer := peer.AddrInfo{
+		ID:    peerInfo.ID,
+		Addrs: []ma.Multiaddr{targetRelayaddr},
 	}
+	if err := h.Connect(ctx, targetPeer); err != nil {
+		return fmt.Errorf("relay connect failed: %w", err)
+	}
+	fmt.Println("success connection")
+	return nil
 }
-
-// s, err := h.NewStream(network.WithAllowLimitedConn(context.Background(), "customprotocol"), targetID, "/customprotocol")
-// if err != nil {
-// 	log.Println("Whoops, this should have worked...: ", err)
-// 	return nil
-// }
-// s.Read(make([]byte, 1))
