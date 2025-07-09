@@ -25,7 +25,7 @@ func (p *PeerInfo) ChatHandler() {
 }
 
 func (p *PeerInfo) SendSimple(targetPeerID peer.ID, text string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	stream, err := p.Host.NewStream(
 		network.WithAllowLimitedConn(ctx, "reason"),
