@@ -25,10 +25,10 @@ func (p *PeerInfo) ChatHandler() {
 	})
 }
 
-func (p *PeerInfo) SendSimple(peerID peer.ID, text string) error {
+func (p *PeerInfo) SendSimple(targetPeerID peer.ID, text string) error {
 	stream, err := p.Host.NewStream(
 		network.WithAllowLimitedConn(context.Background(), "reason"),
-		peerID,
+		targetPeerID,
 		"/customprotocol",
 	)
 	if err != nil {
@@ -37,7 +37,7 @@ func (p *PeerInfo) SendSimple(peerID peer.ID, text string) error {
 	}
 	defer stream.Close()
 	encoder := json.NewEncoder(stream)
-	if err := encoder.Encode("msg 123"); err != nil {
+	if err := encoder.Encode(text); err != nil {
 		return err
 	}
 	return nil
