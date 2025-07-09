@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"p2p/chat"
 	"p2p/config"
 	"p2p/cryptoutils"
 	mypeer "p2p/peer"
@@ -133,7 +132,7 @@ func (cli *CLIManager) handleSend(args []string) {
 		return
 	}
 
-	if err := chat.SendSimple("/customprotocol", cli.peer.Host, cli.config.PeerPrivKey, decodedPeerID, msg); err != nil {
+	if err := cli.peer.SendSimple(decodedPeerID, msg); err != nil {
 		fmt.Printf("Failed to send message: %v\n", err)
 	} else {
 		fmt.Printf("Message sent to %s: %s\n", targetPeerIDStr, msg)
