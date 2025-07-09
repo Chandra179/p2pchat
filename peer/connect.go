@@ -4,14 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-func (p *PeerInfo) Connect(ctx context.Context, h host.Host, peerInfo peer.AddrInfo, relayID peer.ID) error {
+func (p *PeerInfo) Connect(ctx context.Context, peerInfo peer.AddrInfo, relayID peer.ID) error {
 	// Try direct connection first
-	if err := h.Connect(ctx, peerInfo); err == nil {
+	if err := p.Host.Connect(ctx, peerInfo); err == nil {
 		fmt.Println("success direct connection")
 		return nil
 	} else {
@@ -28,7 +27,7 @@ func (p *PeerInfo) Connect(ctx context.Context, h host.Host, peerInfo peer.AddrI
 		ID:    peerInfo.ID,
 		Addrs: []ma.Multiaddr{targetRelayaddr},
 	}
-	if err := h.Connect(ctx, targetPeer); err != nil {
+	if err := p.Host.Connect(ctx, targetPeer); err != nil {
 		return fmt.Errorf("relay connect failed: %w", err)
 	}
 	fmt.Println("success relay connection")

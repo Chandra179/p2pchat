@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"p2p/config"
-	"p2p/cryptoutils"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -21,18 +19,12 @@ type PeerInfo struct {
 	RoutedHost rhost.RoutedHost
 	PeerID     peer.ID
 	Host       host.Host
-	Identity   crypto.PrivKey
 }
 
-func InitPeerHost(cfg *config.Config) (*PeerInfo, error) {
-	privKeyPeer, err := cryptoutils.DecodeBase64Key(cfg.PeerID)
-	if err != nil {
-		fmt.Printf("Failed to decode private key: %v\n", err)
-		return nil, err
-	}
+func InitPeerHost(peerPrivKey crypto.PrivKey) (*PeerInfo, error) {
 	// TODO: configure ip and port for listen address
 	h, err := libp2p.New(
-		libp2p.Identity(privKeyPeer),
+		libp2p.Identity(peerPrivKey),
 		libp2p.EnableHolePunching(),
 		libp2p.NATPortMap(),
 		libp2p.EnableRelay(),
@@ -43,7 +35,7 @@ func InitPeerHost(cfg *config.Config) (*PeerInfo, error) {
 	}
 
 	fmt.Println("Peer ID:", h.ID())
-	return &PeerInfo{Host: h, Identity: privKeyPeer}, nil
+	return &PeerInfo{Host: h}, nil
 }
 
 func (p *PeerInfo) ConnectAndReserveRelay(relayID peer.ID) {
@@ -68,10 +60,31 @@ func (p *PeerInfo) ConnectAndReserveRelay(relayID peer.ID) {
 	fmt.Println("success connect to relay")
 }
 
-func (p *PeerInfo) Ping(id peer.ID, addr ma.Multiaddr) {
-	fmt.Println(p.Host.Network().CanDial(id, addr))
-	fmt.Println(p.Host.Network().Connectedness(id))
-	fmt.Println(p.Host.Network().ConnsToPeer(id))
+func (p *PeerInfo) Ping(id peer.ID, addr string) {
+	maddr, err := ma.NewMultiaddr(addr)
+	if err != nil {
+		log.Printf("Invalid multiaddr: %v", err)
+		return
+	}
+	fmt.Println(p.Host.Network().CanDial(id, maddr))
+}
+
+func (p *PeerInfo) Stat(id peer.ID) {
+	conn := p.Host.Network().ConnsToPeer(id)
+	for _, c := range conn {
+		fmt.Println(c.IsClosed())
+		fmt.Println(c.Scope().Stat().NumConnsInbound)
+		fmt.Println(c.Scope().Stat().NumConnsOutbound)
+		fmt.Println(c.Scope().Stat().NumStreamsInbound)
+		fmt.Println(c.Scope().Stat().NumStreamsOutbound)
+		fmt.Println(c.Stat().Direction)
+		fmt.Println(c.Stat().Opened)
+		fmt.Println(c.Stat().NumStreams)
+		fmt.Println(c.Stat().Limited)
+		fmt.Println(c.ConnState().Security)
+		fmt.Println(c.ConnState().StreamMultiplexer)
+		fmt.Println(c.ConnState().Transport)
+	}
 }
 
 func (p *PeerInfo) ChatHandler() {

@@ -12,11 +12,13 @@ import (
 )
 
 type Config struct {
-	PeerPort     string
+	PeerPort    string
+	PeerID      string
+	PeerPrivKey crypto.PrivKey
+	//
 	RelayPort    string
 	RelayID      peer.ID
 	RelayPrivKey crypto.PrivKey
-	PeerID       string
 	RelayIP      string
 }
 
@@ -24,7 +26,10 @@ func LoadConfig() (*Config, error) {
 	if err := godotenv.Load(".env"); err != nil {
 		log.Printf("Failed to load .env: %v", err)
 	}
-
+	peerPrivKey, err := cryptoutils.DecodeBase64Key(os.Getenv("PEER_ID"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode relay id: %w", err)
+	}
 	relayPrivKey, err := cryptoutils.DecodeBase64Key(os.Getenv("RELAY_ID"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode relay id: %w", err)
@@ -35,11 +40,13 @@ func LoadConfig() (*Config, error) {
 	}
 
 	return &Config{
-		PeerPort:     os.Getenv("PEER_TCP_PORT"),
+		PeerPort:    os.Getenv("PEER_TCP_PORT"),
+		PeerID:      os.Getenv("PEER_ID"),
+		PeerPrivKey: peerPrivKey,
+		//
 		RelayPort:    os.Getenv("RELAY_TCP_PORT"),
 		RelayID:      relayID,
 		RelayPrivKey: relayPrivKey,
-		PeerID:       os.Getenv("PEER_ID"),
 		RelayIP:      os.Getenv("RELAY_IP"),
 	}, nil
 }

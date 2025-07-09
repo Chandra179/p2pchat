@@ -14,10 +14,222 @@ import (
 	"p2p/relay"
 	"strings"
 
-	ma "github.com/multiformats/go-multiaddr"
-
 	"github.com/libp2p/go-libp2p/core/peer"
+	ma "github.com/multiformats/go-multiaddr"
 )
+
+type CLIManager struct {
+	peer       *mypeer.PeerInfo
+	foundPeers map[string][]ma.Multiaddr
+	config     *config.Config
+}
+
+func NewCLIManager(cfg *config.Config) *CLIManager {
+	return &CLIManager{
+		foundPeers: make(map[string][]ma.Multiaddr),
+		config:     cfg,
+	}
+}
+
+func (cli *CLIManager) initPeer() error {
+	p, err := mypeer.InitPeerHost(cli.config.PeerPrivKey)
+	if err != nil {
+		return fmt.Errorf("failed to init peer: %v", err)
+	}
+	cli.peer = p
+	p.ConnectAndReserveRelay(cli.config.RelayID)
+	return nil
+}
+
+func (cli *CLIManager) handlePing(args []string) {
+	if len(args) < 2 {
+		fmt.Println("Usage: ping <peer_id> <peer_addr>")
+		return
+	}
+
+	idStr := args[0]
+	addr := args[1]
+
+	pID, err := peer.Decode(idStr)
+	if err != nil {
+		fmt.Printf("Invalid peer ID: %v\n", err)
+		return
+	}
+
+	cli.peer.Ping(pID, addr)
+}
+
+func (cli *CLIManager) handleConnect(args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: con <peer_id>")
+		return
+	}
+
+	idStr := args[0]
+	pID, err := peer.Decode(idStr)
+	if err != nil {
+		fmt.Printf("Invalid peer ID: %v\n", err)
+		return
+	}
+
+	peerInfo := peer.AddrInfo{
+		ID:    pID,
+		Addrs: cli.foundPeers[idStr],
+	}
+
+	if err := cli.peer.Connect(context.Background(), peerInfo, cli.config.RelayID); err != nil {
+		fmt.Printf("Failed to connect to peer: %v\n", err)
+	} else {
+		fmt.Printf("Successfully connected to peer: %s\n", idStr)
+	}
+}
+
+func (cli *CLIManager) handleDHT() {
+	dm, err := mypeer.InitDHT(context.Background(), cli.peer.Host)
+	if err != nil {
+		fmt.Printf("Failed to init DHT: %v\n", err)
+		return
+	}
+
+	err = dm.AdvertiseHost(context.Background(), "/customprotocol")
+	if err != nil {
+		fmt.Printf("Failed to advertise host: %v\n", err)
+		return
+	}
+
+	peers, err := dm.FindPeers(context.Background(), "/customprotocol")
+	if err != nil {
+		fmt.Printf("Failed to find peers: %v\n", err)
+		return
+	}
+
+	// Store found peers in memory, excluding self
+	peerCount := 0
+	for peer := range peers {
+		if peer.ID == cli.peer.Host.ID() {
+			continue // skip self
+		}
+		cli.foundPeers[peer.ID.String()] = peer.Addrs
+		fmt.Printf("Found peer: %s\n", peer.ID)
+		fmt.Printf("  Addrs: %v\n", peer.Addrs)
+		peerCount++
+	}
+
+	fmt.Printf("Total found peers (excluding self): %d\n", peerCount)
+}
+
+func (cli *CLIManager) handleSend(args []string) {
+	if len(args) < 2 {
+		fmt.Println("Usage: send <peer_id> <message>")
+		return
+	}
+
+	targetPeerIDStr := args[0]
+	msg := strings.Join(args[1:], " ")
+
+	decodedPeerID, err := peer.Decode(targetPeerIDStr)
+	if err != nil {
+		fmt.Printf("Invalid peer ID: %v\n", err)
+		return
+	}
+
+	privKey, err := cryptoutils.DecodeBase64Key(cli.config.PeerID)
+	if err != nil {
+		fmt.Printf("Failed to decode private key: %v\n", err)
+		return
+	}
+
+	if err := chat.SendSimple("/customprotocol", cli.peer.Host, privKey, decodedPeerID, msg); err != nil {
+		fmt.Printf("Failed to send message: %v\n", err)
+	} else {
+		fmt.Printf("Message sent to %s: %s\n", targetPeerIDStr, msg)
+	}
+}
+
+func (cli *CLIManager) handleGenkey() {
+	key, err := cryptoutils.GenerateEd25519Key()
+	if err != nil {
+		fmt.Printf("Failed to generate key: %v\n", err)
+		return
+	}
+	fmt.Println("Generated key:", key)
+}
+
+func (cli *CLIManager) handleList() {
+	if len(cli.foundPeers) == 0 {
+		fmt.Println("No peers found. Use 'dht' command to discover peers.")
+		return
+	}
+
+	fmt.Printf("Found peers (%d):\n", len(cli.foundPeers))
+	for peerID, addrs := range cli.foundPeers {
+		fmt.Printf("  %s\n", peerID)
+		for _, addr := range addrs {
+			fmt.Printf("    %s\n", addr)
+		}
+	}
+}
+
+func (cli *CLIManager) handleHelp(args []string) {
+	fmt.Println("Available commands:")
+	fmt.Println("  ping <peer_id> <peer_addr>  - Ping a peer")
+	fmt.Println("  con <peer_id>               - Connect to a peer")
+	fmt.Println("  dht                         - Discover peers via DHT")
+	fmt.Println("  send <peer_id> <message>    - Send message to peer")
+	fmt.Println("  genkey                      - Generate new Ed25519 key")
+	fmt.Println("  list                        - List discovered peers")
+	fmt.Println("  help                        - Show this help")
+	fmt.Println("  exit                        - Exit the program")
+}
+
+func (cli *CLIManager) runPeerMode() {
+	if err := cli.initPeer(); err != nil {
+		log.Fatalf("Failed to initialize peer: %v", err)
+	}
+
+	fmt.Println("Peer mode started. Type 'help' for available commands.")
+	scanner := bufio.NewScanner(os.Stdin)
+
+	for {
+		fmt.Print("> ")
+		if !scanner.Scan() {
+			break
+		}
+
+		input := strings.TrimSpace(scanner.Text())
+		if input == "" {
+			continue
+		}
+
+		if input == "exit" {
+			fmt.Println("Exiting...")
+			os.Exit(0)
+		}
+
+		fields := strings.Fields(input)
+		command := fields[0]
+		args := fields[1:]
+
+		switch command {
+		case "ping":
+			cli.handlePing(args)
+		case "con":
+			cli.handleConnect(args)
+		case "dht":
+			cli.handleDHT()
+		case "send":
+			cli.handleSend(args)
+		case "genkey":
+			cli.handleGenkey()
+		case "list":
+			cli.handleList()
+		case "help":
+			cli.handleHelp(args)
+		default:
+			fmt.Printf("Unknown command: %s. Type 'help' for available commands.\n", command)
+		}
+	}
+}
 
 func main() {
 	mode := flag.String("mode", "", "Mode to run: 'relay' or 'peer' (required for startup)")
@@ -30,10 +242,8 @@ func main() {
 
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		fmt.Errorf("err config: %w", err)
+		log.Fatalf("Failed to load config: %v", err)
 	}
-
-	var foundPeers map[string][]ma.Multiaddr
 
 	switch *mode {
 	case "relay":
@@ -41,108 +251,8 @@ func main() {
 		relay.RunRelay(cfg)
 	case "peer":
 		fmt.Println("Running in peer mode...")
-		p, err := mypeer.InitPeerHost(cfg)
-		if err != nil {
-			log.Fatalf("Failed to init peer: %v", err)
-		}
-		p.ConnectAndReserveRelay(cfg.RelayID)
-		scanner := bufio.NewScanner(os.Stdin)
-		for {
-			fmt.Print("> ")
-			if !scanner.Scan() {
-				break
-			}
-			input := scanner.Text()
-			fields := strings.Fields(input)
-			if len(fields) == 0 {
-				continue
-			}
-			switch fields[0] {
-			case "ping":
-				if len(fields) < 2 {
-					continue
-				}
-				targetPeerID := fields[1]
-				decodedPeerID, err := peer.Decode(targetPeerID)
-				if err != nil {
-					fmt.Printf("Invalid peer ID: %v\n", err)
-					continue
-				}
-				p.Ping(decodedPeerID, foundPeers[targetPeerID][0])
-			case "con":
-				if len(fields) < 2 {
-					continue
-				}
-				targetPeerID := fields[1]
-				decodedPeerID, err := peer.Decode(targetPeerID)
-				if err != nil {
-					fmt.Printf("Invalid peer ID: %v\n", err)
-					continue
-				}
-				peerInfo := peer.AddrInfo{
-					ID:    decodedPeerID,
-					Addrs: foundPeers[targetPeerID], // use foundPeers if available
-				}
-				if err := p.Connect(context.Background(), p.Host, peerInfo, cfg.RelayID); err != nil {
-					fmt.Printf("Failed to connect to peer: %v\n", err)
-				}
-			case "dht":
-				dm, err := mypeer.InitDHT(context.Background(), p.Host)
-				if err != nil {
-					fmt.Printf("Failed to init DHT: %v\n", err)
-				}
-				err = dm.AdvertiseHost(context.Background(), "/customprotocol")
-				if err != nil {
-					fmt.Printf("Failed to advertise host: %v\n", err)
-				}
-				peers, err := dm.FindPeers(context.Background(), "/customprotocol")
-				if err != nil {
-					fmt.Printf("Failed to find peers: %v\n", err)
-					continue
-				}
-				// Store found peers in memory, excluding self
-				if foundPeers == nil {
-					foundPeers = make(map[string][]ma.Multiaddr)
-				}
-				for peer := range peers {
-					if peer.ID == p.Host.ID() {
-						continue // skip self
-					}
-					foundPeers[peer.ID.String()] = peer.Addrs
-					fmt.Println("Found peer:", peer.ID)
-					fmt.Println("Found peer:", peer.Addrs)
-				}
-				fmt.Printf("Total found peers (excluding self): %d\n", len(foundPeers))
-			case "send":
-				if len(fields) < 3 {
-					fmt.Println("Usage: send <targetpeerid> <message>")
-					continue
-				}
-				targetPeerIDStr := fields[1]
-				msg := strings.Join(fields[2:], " ")
-				decodedPeerID, err := peer.Decode(targetPeerIDStr)
-				if err != nil {
-					fmt.Printf("Invalid peer ID: %v\n", err)
-					continue
-				}
-				privKey, err := cryptoutils.DecodeBase64Key(cfg.PeerID)
-				if err != nil {
-					fmt.Printf("Failed to decode private key: %v\n", err)
-					return
-				}
-				if err := chat.SendSimple("/customprotocol", p.Host, privKey, decodedPeerID, msg); err != nil {
-					fmt.Printf("Failed to send message: %v\n", err)
-				}
-			case "genkey":
-				key, err := cryptoutils.GenerateEd25519Key()
-				if err != nil {
-					fmt.Printf("Failed to generate key: %v\n", err)
-				}
-				fmt.Println(key)
-			default:
-				fmt.Println("Unknown command. Use 'con <targetpeerid>', 'send <message>', or 'exit'.")
-			}
-		}
+		cli := NewCLIManager(cfg)
+		cli.runPeerMode()
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown mode: %s\n", *mode)
 		os.Exit(1)
