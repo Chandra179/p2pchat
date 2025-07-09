@@ -10,9 +10,15 @@ import (
 )
 
 func (p *PeerInfo) Connect(ctx context.Context, h host.Host, peerInfo peer.AddrInfo, relayID peer.ID) error {
-	if err := h.Connect(ctx, peerInfo); err != nil {
-		return fmt.Errorf("direct connect failed: %w", err)
+	// Try direct connection first
+	if err := h.Connect(ctx, peerInfo); err == nil {
+		fmt.Println("success direct connection")
+		return nil
+	} else {
+		fmt.Println("direct connect failed, trying relay...")
 	}
+
+	// If direct fails, try relay connection
 	addrStr := fmt.Sprintf("/p2p/%s/p2p-circuit/p2p/%s", relayID, peerInfo.ID)
 	targetRelayaddr, err := ma.NewMultiaddr(addrStr)
 	if err != nil {
@@ -25,6 +31,6 @@ func (p *PeerInfo) Connect(ctx context.Context, h host.Host, peerInfo peer.AddrI
 	if err := h.Connect(ctx, targetPeer); err != nil {
 		return fmt.Errorf("relay connect failed: %w", err)
 	}
-	fmt.Println("success connection")
+	fmt.Println("success relay connection")
 	return nil
 }

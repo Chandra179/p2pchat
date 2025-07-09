@@ -28,7 +28,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg := config.LoadConfig()
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		fmt.Errorf("err config: %w", err)
+	}
 
 	var foundPeers map[string][]ma.Multiaddr
 
@@ -43,8 +46,6 @@ func main() {
 			log.Fatalf("Failed to init peer: %v", err)
 		}
 		p.ConnectAndReserveRelay(cfg.RelayID)
-		// Enter REPL for commands
-		fmt.Println("Peer started. Enter commands: 'con <targetpeerid>', 'send <message>', or 'exit'.")
 		scanner := bufio.NewScanner(os.Stdin)
 		for {
 			fmt.Print("> ")
@@ -82,7 +83,7 @@ func main() {
 					ID:    decodedPeerID,
 					Addrs: foundPeers[targetPeerID], // use foundPeers if available
 				}
-				if err := p.Connect(context.Background(), p.Host, peerInfo, peer.ID(cfg.RelayID)); err != nil {
+				if err := p.Connect(context.Background(), p.Host, peerInfo, cfg.RelayID); err != nil {
 					fmt.Printf("Failed to connect to peer: %v\n", err)
 				}
 			case "dht":

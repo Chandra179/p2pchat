@@ -46,24 +46,14 @@ func InitPeerHost(cfg *config.Config) (*PeerInfo, error) {
 	return &PeerInfo{Host: h, Identity: privKeyPeer}, nil
 }
 
-func (p *PeerInfo) ConnectAndReserveRelay(relayID string) {
+func (p *PeerInfo) ConnectAndReserveRelay(relayID peer.ID) {
 	relayAddr, err := ma.NewMultiaddr("/ip4/35.208.121.167/tcp/9000")
 	if err != nil {
 		log.Printf("Failed to parse relay multiaddr: %v", err)
 		return
 	}
-	key, err := cryptoutils.DecodeBase64Key(relayID)
-	if err != nil {
-		fmt.Printf("Failed to decode private key: %v\n", err)
-		return
-	}
-	id, err := peer.IDFromPrivateKey(key)
-	if err != nil {
-		fmt.Printf("Failed to extract peer id from private key: %v\n", err)
-		return
-	}
 	relayinfo := peer.AddrInfo{
-		ID:    id,
+		ID:    relayID,
 		Addrs: []ma.Multiaddr{relayAddr},
 	}
 	if err := p.Host.Connect(context.Background(), relayinfo); err != nil {
@@ -79,9 +69,9 @@ func (p *PeerInfo) ConnectAndReserveRelay(relayID string) {
 }
 
 func (p *PeerInfo) Ping(id peer.ID, addr ma.Multiaddr) {
-	p.Host.Network().CanDial(id, addr)
-	p.Host.Network().Connectedness(id)
-	p.Host.Network().ConnsToPeer(id)
+	fmt.Println(p.Host.Network().CanDial(id, addr))
+	fmt.Println(p.Host.Network().Connectedness(id))
+	fmt.Println(p.Host.Network().ConnsToPeer(id))
 }
 
 func (p *PeerInfo) ChatHandler() {
