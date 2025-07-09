@@ -32,9 +32,11 @@ func InitPeerHost(peerPrivKey crypto.PrivKey) (*PeerInfo, error) {
 		log.Printf("Failed to create node: %v", err)
 		return nil, err
 	}
-
+	p := PeerInfo{Host: h}
 	fmt.Println("Peer ID:", h.ID())
-	return &PeerInfo{Host: h}, nil
+	p.ChatHandler()
+
+	return &p, nil
 }
 
 func (p *PeerInfo) ConnectAndReserveRelay(relayID peer.ID, relayIP string, relayPort string) {
@@ -43,15 +45,15 @@ func (p *PeerInfo) ConnectAndReserveRelay(relayID peer.ID, relayIP string, relay
 		log.Printf("Failed to parse relay multiaddr: %v", err)
 		return
 	}
-	relayinfo := peer.AddrInfo{
+	addrInfo := peer.AddrInfo{
 		ID:    relayID,
 		Addrs: []ma.Multiaddr{addr},
 	}
-	if err := p.Host.Connect(context.Background(), relayinfo); err != nil {
+	if err := p.Host.Connect(context.Background(), addrInfo); err != nil {
 		log.Printf("Failed too connect to relay: %v", err)
 		return
 	}
-	_, err = client.Reserve(context.Background(), p.Host, relayinfo)
+	_, err = client.Reserve(context.Background(), p.Host, addrInfo)
 	if err != nil {
 		log.Printf("Failed to reserved relay %v", err)
 		return

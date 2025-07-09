@@ -133,13 +133,7 @@ func (cli *CLIManager) handleSend(args []string) {
 		return
 	}
 
-	privKey, err := cryptoutils.DecodeBase64Key(cli.config.PeerID)
-	if err != nil {
-		fmt.Printf("Failed to decode private key: %v\n", err)
-		return
-	}
-
-	if err := chat.SendSimple("/customprotocol", cli.peer.Host, privKey, decodedPeerID, msg); err != nil {
+	if err := chat.SendSimple("/customprotocol", cli.peer.Host, cli.config.PeerPrivKey, decodedPeerID, msg); err != nil {
 		fmt.Printf("Failed to send message: %v\n", err)
 	} else {
 		fmt.Printf("Message sent to %s: %s\n", targetPeerIDStr, msg)
@@ -170,7 +164,7 @@ func (cli *CLIManager) handleList() {
 	}
 }
 
-func (cli *CLIManager) handleHelp(args []string) {
+func (cli *CLIManager) handleHelp() {
 	fmt.Println("Available commands:")
 	fmt.Println("  ping <peer_id> <peer_addr>  - Ping a peer")
 	fmt.Println("  con <peer_id>               - Connect to a peer")
@@ -224,7 +218,7 @@ func (cli *CLIManager) runPeerMode() {
 		case "list":
 			cli.handleList()
 		case "help":
-			cli.handleHelp(args)
+			cli.handleHelp()
 		default:
 			fmt.Printf("Unknown command: %s. Type 'help' for available commands.\n", command)
 		}
