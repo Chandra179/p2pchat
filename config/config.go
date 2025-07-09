@@ -7,15 +7,17 @@ import (
 	"p2p/cryptoutils"
 
 	"github.com/joho/godotenv"
+	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 type Config struct {
-	PeerPort  string
-	RelayPort string
-	RelayID   peer.ID
-	PeerID    string
-	RelayIP   string
+	PeerPort     string
+	RelayPort    string
+	RelayID      peer.ID
+	RelayPrivKey crypto.PrivKey
+	PeerID       string
+	RelayIP      string
 }
 
 func LoadConfig() (*Config, error) {
@@ -33,10 +35,11 @@ func LoadConfig() (*Config, error) {
 	}
 
 	return &Config{
-		PeerPort:  os.Getenv("PEER_TCP_PORT"),
-		RelayPort: os.Getenv("RELAY_TCP_PORT"),
-		RelayID:   relayID,
-		PeerID:    os.Getenv("PEER_ID"),
-		RelayIP:   os.Getenv("RELAY_IP"),
+		PeerPort:     os.Getenv("PEER_TCP_PORT"),
+		RelayPort:    os.Getenv("RELAY_TCP_PORT"),
+		RelayID:      relayID,
+		RelayPrivKey: relayPrivKey,
+		PeerID:       os.Getenv("PEER_ID"),
+		RelayIP:      os.Getenv("RELAY_IP"),
 	}, nil
 }
