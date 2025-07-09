@@ -37,7 +37,7 @@ func (cli *CLIManager) initPeer() error {
 		return fmt.Errorf("failed to init peer: %v", err)
 	}
 	cli.peer = p
-	p.ConnectAndReserveRelay(cli.config.RelayID)
+	p.ConnectAndReserveRelay(cli.config.RelayID, cli.config.RelayIP, cli.config.RelayPort)
 	return nil
 }
 

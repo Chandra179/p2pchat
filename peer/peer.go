@@ -8,7 +8,6 @@ import (
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
-	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
 	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
@@ -38,15 +37,15 @@ func InitPeerHost(peerPrivKey crypto.PrivKey) (*PeerInfo, error) {
 	return &PeerInfo{Host: h}, nil
 }
 
-func (p *PeerInfo) ConnectAndReserveRelay(relayID peer.ID) {
-	relayAddr, err := ma.NewMultiaddr("/ip4/35.208.121.167/tcp/9000")
+func (p *PeerInfo) ConnectAndReserveRelay(relayID peer.ID, relayIP string, relayPort string) {
+	addr, err := ma.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%s", relayIP, relayPort))
 	if err != nil {
 		log.Printf("Failed to parse relay multiaddr: %v", err)
 		return
 	}
 	relayinfo := peer.AddrInfo{
 		ID:    relayID,
-		Addrs: []ma.Multiaddr{relayAddr},
+		Addrs: []ma.Multiaddr{addr},
 	}
 	if err := p.Host.Connect(context.Background(), relayinfo); err != nil {
 		log.Printf("Failed too connect to relay: %v", err)
@@ -67,29 +66,4 @@ func (p *PeerInfo) Ping(id peer.ID, addr string) {
 		return
 	}
 	fmt.Println(p.Host.Network().CanDial(id, maddr))
-}
-
-func (p *PeerInfo) Stat(id peer.ID) {
-	conn := p.Host.Network().ConnsToPeer(id)
-	for _, c := range conn {
-		fmt.Println(c.IsClosed())
-		fmt.Println(c.Scope().Stat().NumConnsInbound)
-		fmt.Println(c.Scope().Stat().NumConnsOutbound)
-		fmt.Println(c.Scope().Stat().NumStreamsInbound)
-		fmt.Println(c.Scope().Stat().NumStreamsOutbound)
-		fmt.Println(c.Stat().Direction)
-		fmt.Println(c.Stat().Opened)
-		fmt.Println(c.Stat().NumStreams)
-		fmt.Println(c.Stat().Limited)
-		fmt.Println(c.ConnState().Security)
-		fmt.Println(c.ConnState().StreamMultiplexer)
-		fmt.Println(c.ConnState().Transport)
-	}
-}
-
-func (p *PeerInfo) ChatHandler() {
-	p.Host.SetStreamHandler("/customprotocol", func(s network.Stream) {
-		log.Println("Awesome! We're now communicating via the relay!")
-		s.Close()
-	})
 }
