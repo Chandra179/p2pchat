@@ -9,7 +9,7 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-func (p *HostInfo) Connect(ctx context.Context, h host.Host, peerInfo peer.AddrInfo, relayID peer.ID) error {
+func (p *PeerInfo) Connect(ctx context.Context, h host.Host, peerInfo peer.AddrInfo, relayID peer.ID) error {
 	if err := h.Connect(ctx, peerInfo); err != nil {
 		return fmt.Errorf("direct connect failed: %w", err)
 	}

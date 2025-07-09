@@ -57,9 +57,19 @@ func main() {
 				continue
 			}
 			switch fields[0] {
+			case "ping":
+				if len(fields) < 2 {
+					continue
+				}
+				targetPeerID := fields[1]
+				decodedPeerID, err := peer.Decode(targetPeerID)
+				if err != nil {
+					fmt.Printf("Invalid peer ID: %v\n", err)
+					continue
+				}
+				p.Ping(decodedPeerID, foundPeers[targetPeerID][0])
 			case "con":
 				if len(fields) < 2 {
-					fmt.Println("Usage: con <targetpeerid>|all")
 					continue
 				}
 				targetPeerID := fields[1]
@@ -75,7 +85,7 @@ func main() {
 				if err := p.Connect(context.Background(), p.Host, peerInfo, peer.ID(cfg.RelayID)); err != nil {
 					fmt.Printf("Failed to connect to peer: %v\n", err)
 				}
-			case "find":
+			case "dht":
 				dm, err := mypeer.InitDHT(context.Background(), p.Host)
 				if err != nil {
 					fmt.Printf("Failed to init DHT: %v\n", err)

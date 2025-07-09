@@ -14,24 +14,24 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
 	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
-	"github.com/multiformats/go-multiaddr"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
-type HostInfo struct {
+type PeerInfo struct {
 	RoutedHost rhost.RoutedHost
 	PeerID     peer.ID
 	Host       host.Host
 	Identity   crypto.PrivKey
 }
 
-func InitPeerHost(cfg *config.Config) (*HostInfo, error) {
+func InitPeerHost(cfg *config.Config) (*PeerInfo, error) {
 	privKeyPeer, err := cryptoutils.DecodeBase64Key(cfg.PeerID)
 	if err != nil {
 		fmt.Printf("Failed to decode private key: %v\n", err)
 		return nil, err
 	}
 	// TODO: configure ip and port for listen address
-	peerHost, err := libp2p.New(
+	h, err := libp2p.New(
 		libp2p.Identity(privKeyPeer),
 		libp2p.EnableHolePunching(),
 		libp2p.NATPortMap(),
@@ -41,17 +41,13 @@ func InitPeerHost(cfg *config.Config) (*HostInfo, error) {
 		log.Printf("Failed to create node: %v", err)
 		return nil, err
 	}
-	peerHost.SetStreamHandler("/customprotocol", func(s network.Stream) {
-		log.Println("Awesome! We're now communicating via the relay!")
-		s.Close()
-	})
 
-	fmt.Println("Peer ID:", peerHost.ID())
-	return &HostInfo{Host: peerHost, Identity: privKeyPeer}, nil
+	fmt.Println("Peer ID:", h.ID())
+	return &PeerInfo{Host: h, Identity: privKeyPeer}, nil
 }
 
-func (p *HostInfo) ConnectAndReserveRelay(relayID string) {
-	relayAddr, err := multiaddr.NewMultiaddr("/ip4/35.208.121.167/tcp/9000")
+func (p *PeerInfo) ConnectAndReserveRelay(relayID string) {
+	relayAddr, err := ma.NewMultiaddr("/ip4/35.208.121.167/tcp/9000")
 	if err != nil {
 		log.Printf("Failed to parse relay multiaddr: %v", err)
 		return
@@ -68,16 +64,29 @@ func (p *HostInfo) ConnectAndReserveRelay(relayID string) {
 	}
 	relayinfo := peer.AddrInfo{
 		ID:    id,
-		Addrs: []multiaddr.Multiaddr{relayAddr},
+		Addrs: []ma.Multiaddr{relayAddr},
 	}
 	if err := p.Host.Connect(context.Background(), relayinfo); err != nil {
-		log.Printf("Failed to connect unreachable1 and relay1: %v", err)
+		log.Printf("Failed too connect to relay: %v", err)
 		return
 	}
 	_, err = client.Reserve(context.Background(), p.Host, relayinfo)
 	if err != nil {
-		log.Printf("unreachable2 failed to receive a relay reservation from relay1. %v", err)
+		log.Printf("Failed to reserved relay %v", err)
 		return
 	}
 	fmt.Println("success connect to relay")
+}
+
+func (p *PeerInfo) Ping(id peer.ID, addr ma.Multiaddr) {
+	p.Host.Network().CanDial(id, addr)
+	p.Host.Network().Connectedness(id)
+	p.Host.Network().ConnsToPeer(id)
+}
+
+func (p *PeerInfo) ChatHandler() {
+	p.Host.SetStreamHandler("/customprotocol", func(s network.Stream) {
+		log.Println("Awesome! We're now communicating via the relay!")
+		s.Close()
+	})
 }
