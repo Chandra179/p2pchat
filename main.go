@@ -2,15 +2,227 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"p2p/config"
-	"p2p/peer"
+	"p2p/cryptoutils"
+	mypeer "p2p/peer"
 	"p2p/relay"
 	"strings"
+
+	"github.com/libp2p/go-libp2p/core/peer"
+	ma "github.com/multiformats/go-multiaddr"
 )
+
+type CLIManager struct {
+	peer       *mypeer.PeerInfo
+	foundPeers map[string][]ma.Multiaddr
+	config     *config.Config
+}
+
+func NewCLIManager(cfg *config.Config) *CLIManager {
+	return &CLIManager{
+		foundPeers: make(map[string][]ma.Multiaddr),
+		config:     cfg,
+	}
+}
+
+func (cli *CLIManager) initPeer() error {
+	p, err := mypeer.InitPeerHost(cli.config.PeerPrivKey)
+	if err != nil {
+		return fmt.Errorf("failed to init peer: %v", err)
+	}
+	cli.peer = p
+	p.ConnectAndReserveRelay(cli.config.RelayID, cli.config.RelayIP, cli.config.RelayPort)
+	return nil
+}
+
+func (cli *CLIManager) handlePing(args []string) {
+	if len(args) < 2 {
+		fmt.Println("Usage: ping <peer_id> <peer_addr>")
+		return
+	}
+
+	idStr := args[0]
+	addr := args[1]
+
+	pID, err := peer.Decode(idStr)
+	if err != nil {
+		fmt.Printf("Invalid peer ID: %v\n", err)
+		return
+	}
+
+	cli.peer.Ping(pID, addr)
+}
+
+func (cli *CLIManager) handleConnect(args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: con <peer_id>")
+		return
+	}
+
+	idStr := args[0]
+	pID, err := peer.Decode(idStr)
+	if err != nil {
+		fmt.Printf("Invalid peer ID: %v\n", err)
+		return
+	}
+
+	peerInfo := peer.AddrInfo{
+		ID:    pID,
+		Addrs: cli.foundPeers[idStr],
+	}
+
+	if err := cli.peer.Connect(context.Background(), peerInfo, cli.config.RelayID); err != nil {
+		fmt.Printf("Failed to connect to peer: %v\n", err)
+	} else {
+		fmt.Printf("Successfully connected to peer: %s\n", idStr)
+	}
+}
+
+func (cli *CLIManager) handleDHT() {
+	dm, err := mypeer.InitDHT(context.Background(), cli.peer.Host)
+	if err != nil {
+		fmt.Printf("Failed to init DHT: %v\n", err)
+		return
+	}
+
+	err = dm.AdvertiseHost(context.Background(), "/customprotocol")
+	if err != nil {
+		fmt.Printf("Failed to advertise host: %v\n", err)
+		return
+	}
+
+	peers, err := dm.FindPeers(context.Background(), "/customprotocol")
+	if err != nil {
+		fmt.Printf("Failed to find peers: %v\n", err)
+		return
+	}
+
+	// Store found peers in memory, excluding self
+	peerCount := 0
+	for peer := range peers {
+		if peer.ID == cli.peer.Host.ID() {
+			continue // skip self
+		}
+		cli.foundPeers[peer.ID.String()] = peer.Addrs
+		fmt.Printf("Found peer: %s\n", peer.ID)
+		fmt.Printf("  Addrs: %v\n", peer.Addrs)
+		peerCount++
+	}
+
+	fmt.Printf("Total found peers (excluding self): %d\n", peerCount)
+}
+
+func (cli *CLIManager) handleSend(args []string) {
+	if len(args) < 2 {
+		fmt.Println("Usage: send <peer_id> <message>")
+		return
+	}
+
+	targetPeerIDStr := args[0]
+	msg := strings.Join(args[1:], " ")
+
+	decodedPeerID, err := peer.Decode(targetPeerIDStr)
+	if err != nil {
+		fmt.Printf("Invalid peer ID: %v\n", err)
+		return
+	}
+
+	if err := cli.peer.SendSimple(decodedPeerID, msg); err != nil {
+		fmt.Printf("Failed to send message: %v\n", err)
+	} else {
+		fmt.Printf("Message sent to %s: %s\n", targetPeerIDStr, msg)
+	}
+}
+
+func (cli *CLIManager) handleGenkey() {
+	key, err := cryptoutils.GenerateEd25519Key()
+	if err != nil {
+		fmt.Printf("Failed to generate key: %v\n", err)
+		return
+	}
+	fmt.Println("Generated key:", key)
+}
+
+func (cli *CLIManager) handleList() {
+	if len(cli.foundPeers) == 0 {
+		fmt.Println("No peers found. Use 'dht' command to discover peers.")
+		return
+	}
+
+	fmt.Printf("Found peers (%d):\n", len(cli.foundPeers))
+	for peerID, addrs := range cli.foundPeers {
+		fmt.Printf("  %s\n", peerID)
+		for _, addr := range addrs {
+			fmt.Printf("    %s\n", addr)
+		}
+	}
+}
+
+func (cli *CLIManager) handleHelp() {
+	fmt.Println("Available commands:")
+	fmt.Println("  ping <peer_id> <peer_addr>  - Ping a peer")
+	fmt.Println("  con <peer_id>               - Connect to a peer")
+	fmt.Println("  dht                         - Discover peers via DHT")
+	fmt.Println("  send <peer_id> <message>    - Send message to peer")
+	fmt.Println("  genkey                      - Generate new Ed25519 key")
+	fmt.Println("  list                        - List discovered peers")
+	fmt.Println("  help                        - Show this help")
+	fmt.Println("  exit                        - Exit the program")
+}
+
+func (cli *CLIManager) runPeerMode() {
+	if err := cli.initPeer(); err != nil {
+		log.Fatalf("Failed to initialize peer: %v", err)
+	}
+
+	fmt.Println("Peer mode started. Type 'help' for available commands.")
+	scanner := bufio.NewScanner(os.Stdin)
+
+	for {
+		fmt.Print("> ")
+		if !scanner.Scan() {
+			break
+		}
+
+		input := strings.TrimSpace(scanner.Text())
+		if input == "" {
+			continue
+		}
+
+		if input == "exit" {
+			fmt.Println("Exiting...")
+			os.Exit(0)
+		}
+
+		fields := strings.Fields(input)
+		command := fields[0]
+		args := fields[1:]
+
+		switch command {
+		case "ping":
+			cli.handlePing(args)
+		case "con":
+			cli.handleConnect(args)
+		case "dht":
+			cli.handleDHT()
+		case "send":
+			cli.handleSend(args)
+		case "genkey":
+			cli.handleGenkey()
+		case "list":
+			cli.handleList()
+		case "help":
+			cli.handleHelp()
+		default:
+			fmt.Printf("Unknown command: %s. Type 'help' for available commands.\n", command)
+		}
+	}
+}
 
 func main() {
 	mode := flag.String("mode", "", "Mode to run: 'relay' or 'peer' (required for startup)")
@@ -21,8 +233,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg := config.LoadConfig()
-	peerInfo := peer.PeerInfo{}
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
 
 	switch *mode {
 	case "relay":
@@ -30,50 +244,8 @@ func main() {
 		relay.RunRelay(cfg)
 	case "peer":
 		fmt.Println("Running in peer mode...")
-		p, err := peer.RunPeer(cfg)
-		if err != nil {
-			log.Fatalf("Failed to run peer: %v", err)
-		}
-		peerInfo = *p
-		// Enter REPL for commands
-		fmt.Println("Peer started. Enter commands: 'con <targetpeerid>', 'send <message>', or 'exit'.")
-		scanner := bufio.NewScanner(os.Stdin)
-		for {
-			fmt.Print("> ")
-			if !scanner.Scan() {
-				break
-			}
-			input := scanner.Text()
-			fields := strings.Fields(input)
-			if len(fields) == 0 {
-				continue
-			}
-			switch fields[0] {
-			case "con":
-				if len(fields) < 2 {
-					fmt.Println("Usage: con <targetpeerid>")
-					continue
-				}
-				targetPeerID := fields[1]
-				if err := peerInfo.ConnectPeer(targetPeerID); err != nil {
-					fmt.Printf("Failed to connect to peer: %v\n", err)
-				}
-			case "send":
-				if len(fields) < 2 {
-					fmt.Println("Usage: send <message>")
-					continue
-				}
-				msg := strings.Join(fields[1:], " ")
-				if err := peerInfo.SendMessage(msg); err != nil {
-					fmt.Printf("Failed to send message: %v\n", err)
-				}
-			case "exit":
-				fmt.Println("Exiting peer...")
-				os.Exit(0)
-			default:
-				fmt.Println("Unknown command. Use 'con <targetpeerid>', 'send <message>', or 'exit'.")
-			}
-		}
+		cli := NewCLIManager(cfg)
+		cli.runPeerMode()
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown mode: %s\n", *mode)
 		os.Exit(1)
