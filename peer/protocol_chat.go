@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -12,9 +13,7 @@ import (
 
 func (p *PeerInfo) ChatHandler() {
 	p.Host.SetStreamHandler("/customprotocol", func(s network.Stream) {
-		log.Println("Awesome! We're now communicating via the relay!")
 		defer s.Close()
-
 		var msg string
 		decoder := json.NewDecoder(s)
 		if err := decoder.Decode(&msg); err != nil {
@@ -26,8 +25,10 @@ func (p *PeerInfo) ChatHandler() {
 }
 
 func (p *PeerInfo) SendSimple(targetPeerID peer.ID, text string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	stream, err := p.Host.NewStream(
-		network.WithAllowLimitedConn(context.Background(), "reason"),
+		network.WithAllowLimitedConn(ctx, "reason"),
 		targetPeerID,
 		"/customprotocol",
 	)
