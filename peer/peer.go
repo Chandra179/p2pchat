@@ -18,9 +18,16 @@ type PeerInfo struct {
 	RoutedHost rhost.RoutedHost
 	PeerID     peer.ID
 	Host       host.Host
+	PeerStore  *PeerStore
 }
 
 func InitPeerHost(peerPrivKey crypto.PrivKey) (*PeerInfo, error) {
+	ps, err := NewPeerStore("./peers_db")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer ps.Close()
+
 	// TODO: configure ip and port for listen address
 	h, err := libp2p.New(
 		libp2p.Identity(peerPrivKey),
@@ -32,7 +39,7 @@ func InitPeerHost(peerPrivKey crypto.PrivKey) (*PeerInfo, error) {
 		log.Printf("Failed to create node: %v", err)
 		return nil, err
 	}
-	p := PeerInfo{Host: h}
+	p := PeerInfo{Host: h, PeerStore: ps}
 	fmt.Println("Peer ID:", h.ID())
 	p.ChatHandler()
 
