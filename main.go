@@ -14,19 +14,16 @@ import (
 	"strings"
 
 	"github.com/libp2p/go-libp2p/core/peer"
-	ma "github.com/multiformats/go-multiaddr"
 )
 
 type CLIManager struct {
-	peer       *mypeer.PeerInfo
-	foundPeers map[string][]ma.Multiaddr
-	config     *config.Config
+	peer   *mypeer.PeerInfo
+	config *config.Config
 }
 
 func NewCLIManager(cfg *config.Config) *CLIManager {
 	return &CLIManager{
-		foundPeers: make(map[string][]ma.Multiaddr),
-		config:     cfg,
+		config: cfg,
 	}
 }
 
@@ -71,9 +68,14 @@ func (cli *CLIManager) handleConnect(args []string) {
 		return
 	}
 
+	addrs := cli.peer.PeerStore.GetPeer(pID)
+	if len(addrs) <= 0 {
+		fmt.Println("No address for given peer")
+	}
+
 	peerInfo := peer.AddrInfo{
 		ID:    pID,
-		Addrs: cli.foundPeers[idStr],
+		Addrs: addrs,
 	}
 
 	if err := cli.peer.Connect(context.Background(), peerInfo, cli.config.RelayID); err != nil {
@@ -84,7 +86,7 @@ func (cli *CLIManager) handleConnect(args []string) {
 }
 
 func (cli *CLIManager) handleDHT() {
-	dm, err := mypeer.InitDHT(context.Background(), cli.peer.Host)
+	dm, err := cli.peer.InitDHT(context.Background(), cli.peer.Host)
 	if err != nil {
 		fmt.Printf("Failed to init DHT: %v\n", err)
 		return
@@ -108,7 +110,6 @@ func (cli *CLIManager) handleDHT() {
 		if peer.ID == cli.peer.Host.ID() {
 			continue // skip self
 		}
-		cli.foundPeers[peer.ID.String()] = peer.Addrs
 		fmt.Printf("Found peer: %s\n", peer.ID)
 		fmt.Printf("  Addrs: %v\n", peer.Addrs)
 		peerCount++
@@ -149,18 +150,7 @@ func (cli *CLIManager) handleGenkey() {
 }
 
 func (cli *CLIManager) handleList() {
-	if len(cli.foundPeers) == 0 {
-		fmt.Println("No peers found. Use 'dht' command to discover peers.")
-		return
-	}
-
-	fmt.Printf("Found peers (%d):\n", len(cli.foundPeers))
-	for peerID, addrs := range cli.foundPeers {
-		fmt.Printf("  %s\n", peerID)
-		for _, addr := range addrs {
-			fmt.Printf("    %s\n", addr)
-		}
-	}
+	fmt.Println(cli.peer.PeerStore.GetAllPeers())
 }
 
 func (cli *CLIManager) handleHelp() {

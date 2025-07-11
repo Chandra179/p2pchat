@@ -17,12 +17,11 @@ type DHTManager struct {
 }
 
 // InitDHT initializes Kademlia DHT with bootstrap peers
-func InitDHT(ctx context.Context, h host.Host) (*DHTManager, error) {
+func (p *PeerInfo) InitDHT(ctx context.Context, h host.Host) (*DHTManager, error) {
 	kademliaDHT, err := dht.New(ctx, h, dht.Mode(dht.ModeAuto))
 	if err != nil {
 		return nil, err
 	}
-	//TODO: might need to store the peer addrs in a file, db or storage
 	dft := dht.DefaultBootstrapPeers
 	for _, addr := range dft {
 		peerinfo, _ := peer.AddrInfoFromP2pAddr(addr)
@@ -31,6 +30,7 @@ func InitDHT(ctx context.Context, h host.Host) (*DHTManager, error) {
 			fmt.Println("Failed to connect to bootstrap peer:", peerinfo.ID, err)
 			continue
 		}
+		p.PeerStore.AddTempPeer(peerinfo.ID, peerinfo.Addrs)
 	}
 	if err := kademliaDHT.Bootstrap(ctx); err != nil {
 		return nil, err
