@@ -80,8 +80,13 @@ func (cli *CLIManager) handleConnect(args []string) {
 
 	if err := cli.peer.Connect(context.Background(), peerInfo, cli.config.RelayID); err != nil {
 		fmt.Printf("Failed to connect to peer: %v\n", err)
-	} else {
-		fmt.Printf("Successfully connected to peer: %s\n", idStr)
+		return
+	}
+
+	fmt.Printf("Successfully connected to peer: %s\n", idStr)
+	if err = cli.peer.PeerStore.AddPeer(peerInfo.ID, peerInfo.Addrs); err != nil {
+		fmt.Println("failed to add peer")
+		return
 	}
 }
 
