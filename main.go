@@ -115,8 +115,7 @@ func (cli *CLIManager) handleDHT() {
 		if peer.ID == cli.peer.Host.ID() {
 			continue // skip self
 		}
-		fmt.Printf("Found peer: %s\n", peer.ID)
-		fmt.Printf("  Addrs: %v\n", peer.Addrs)
+		cli.peer.PeerStore.AddTempPeer(peer.ID, peer.Addrs)
 		peerCount++
 	}
 

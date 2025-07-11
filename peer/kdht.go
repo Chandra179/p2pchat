@@ -30,7 +30,6 @@ func (p *PeerInfo) InitDHT(ctx context.Context, h host.Host) (*DHTManager, error
 			fmt.Println("Failed to connect to bootstrap peer:", peerinfo.ID, err)
 			continue
 		}
-		p.PeerStore.AddTempPeer(peerinfo.ID, peerinfo.Addrs)
 	}
 	if err := kademliaDHT.Bootstrap(ctx); err != nil {
 		return nil, err
