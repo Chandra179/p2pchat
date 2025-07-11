@@ -153,6 +153,21 @@ func (cli *CLIManager) handleList() {
 	fmt.Println(cli.peer.PeerStore.GetAllPeers())
 }
 
+func (cli *CLIManager) find(args []string) {
+	if len(args) < 1 {
+		fmt.Println("Usage: find <peer_id>")
+		return
+	}
+
+	id := args[0]
+	i, err := peer.Decode(id)
+	if err != nil {
+		fmt.Printf("Invalid peer ID: %v\n", err)
+		return
+	}
+	fmt.Println(cli.peer.PeerStore.GetPeer(i))
+}
+
 func (cli *CLIManager) handleHelp() {
 	fmt.Println("Available commands:")
 	fmt.Println("  ping <peer_id> <peer_addr>  - Ping a peer")
@@ -206,6 +221,8 @@ func (cli *CLIManager) runPeerMode() {
 			cli.handleGenkey()
 		case "list":
 			cli.handleList()
+		case "find":
+			cli.find(args)
 		case "help":
 			cli.handleHelp()
 		default:
