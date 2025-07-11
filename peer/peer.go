@@ -26,7 +26,6 @@ func InitPeerHost(peerPrivKey crypto.PrivKey) (*PeerInfo, error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer ps.Close()
 
 	// TODO: configure ip and port for listen address
 	h, err := libp2p.New(

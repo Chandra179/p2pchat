@@ -82,12 +82,7 @@ func (cli *CLIManager) handleConnect(args []string) {
 		fmt.Printf("Failed to connect to peer: %v\n", err)
 		return
 	}
-
 	fmt.Printf("Successfully connected to peer: %s\n", idStr)
-	if err = cli.peer.PeerStore.AddPeer(peerInfo.ID, peerInfo.Addrs); err != nil {
-		fmt.Println("failed to add peer")
-		return
-	}
 }
 
 func (cli *CLIManager) handleDHT() {
@@ -115,7 +110,7 @@ func (cli *CLIManager) handleDHT() {
 		if peer.ID == cli.peer.Host.ID() {
 			continue // skip self
 		}
-		cli.peer.PeerStore.AddTempPeer(peer.ID, peer.Addrs)
+		cli.peer.PeerStore.AddPeer(peer.ID, peer.Addrs)
 		peerCount++
 	}
 
