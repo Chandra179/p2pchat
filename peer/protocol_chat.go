@@ -30,7 +30,7 @@ func (p *PeerInfo) SendSimple(targetPeerID peer.ID, text string) error {
 	stream, err := p.Host.NewStream(
 		network.WithAllowLimitedConn(ctx, "reason"),
 		targetPeerID,
-		"/customprotocol",
+		"/private-chat/1.0.0",
 	)
 	if err != nil {
 		fmt.Println("err creating stream")
