@@ -6,10 +6,11 @@ import (
 
 // PrivateMessage represents an encrypted message with metadata
 type PrivateMessage struct {
-	Type      string `json:"type"`                 // "key_exchange" or "encrypted_message"
-	PublicKey []byte `json:"public_key,omitempty"` // For key exchange
-	Payload   []byte `json:"payload"`              // Encrypted message or plaintext for key exchange
-	Timestamp int64  `json:"timestamp"`
+	Type               string `json:"type"`                           // "key_exchange" or "encrypted_message"
+	PublicKey          []byte `json:"public_key,omitempty"`           // For long-term key exchange
+	EphemeralPublicKey []byte `json:"ephemeral_public_key,omitempty"` // For ratchet session initialization ("Bob's" ephemeral key)
+	Payload            []byte `json:"payload"`                        // Encrypted message or plaintext for key exchange
+	Timestamp          int64  `json:"timestamp"`
 }
 
 // KeyPair holds DH key pair for a peer

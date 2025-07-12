@@ -30,21 +30,23 @@ func (ms *MessageSender) InitiateKeyExchange(peerID peer.ID) error {
 	if _, err := ms.sessionManager.GenerateAndStoreKeyPair(peerID); err != nil {
 		return fmt.Errorf("failed to generate key pair: %w", err)
 	}
-	return ms.SendKeyExchange(peerID, "key_exchange_init")
+	// The ephemeral key is not sent in the initial message.
+	return ms.SendKeyExchange(peerID, "key_exchange_init", nil)
 }
 
 // SendKeyExchange sends a key exchange message
-func (ms *MessageSender) SendKeyExchange(peerID peer.ID, exchangeType string) error {
+func (ms *MessageSender) SendKeyExchange(peerID peer.ID, exchangeType string, ephemeralPublicKey []byte) error {
 	keyPair, exists := ms.sessionManager.GetKeyPair(peerID)
 	if !exists {
 		return fmt.Errorf("no key pair found for peer %s", peerID)
 	}
 
 	msg := PrivateMessage{
-		Type:      "key_exchange",
-		PublicKey: keyPair.PublicKey[:],
-		Payload:   []byte(exchangeType),
-		Timestamp: time.Now().Unix(),
+		Type:               "key_exchange",
+		PublicKey:          keyPair.PublicKey[:],
+		EphemeralPublicKey: ephemeralPublicKey, // Will be nil for 'init', populated for 'response'
+		Payload:            []byte(exchangeType),
+		Timestamp:          time.Now().Unix(),
 	}
 
 	return ms.sendMessage(peerID, msg)

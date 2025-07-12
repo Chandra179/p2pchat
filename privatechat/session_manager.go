@@ -26,18 +26,20 @@ func NewSessionManager() *SessionManager {
 	}
 }
 
-// CreateSession creates a new secure session with a peer
-func (sm *SessionManager) CreateSession(hostID, peerID peer.ID, sharedSecret [32]byte, theirPublicKey [32]byte) error {
+// CreateSession creates a new secure session with a peer.
+// If the local peer is "Bob" (smaller ID), it generates a new ephemeral DH key pair and returns it.
+// If the local peer is "Alice" (larger ID), it uses the provided ephemeral public key from Bob.
+func (sm *SessionManager) CreateSession(hostID, peerID peer.ID, sharedSecret [32]byte, theirEphemeralPublicKey [32]byte) (*X25519KeyPair, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
 	// Check if session already exists
 	if _, exists := sm.sessions[peerID]; exists {
 		log.Printf("Session already exists with peer %s", peerID)
-		return nil
+		return nil, nil
 	}
 
-	// Create deterministic session ID - always use the same order
+	// Create deterministic session ID
 	var sessionID string
 	if hostID < peerID {
 		sessionID = fmt.Sprintf("%s-%s", hostID, peerID)
@@ -47,40 +49,41 @@ func (sm *SessionManager) CreateSession(hostID, peerID peer.ID, sharedSecret [32
 
 	var session doubleratchet.Session
 	var err error
+	var ourDHKeyPair *X25519KeyPair
 
-	// The key insight: the peer with the smaller ID always acts as "Bob" (uses New())
-	// and the peer with the larger ID always acts as "Alice" (uses NewWithRemoteKey())
-	// This ensures both peers create compatible sessions
+	// The peer with the smaller ID always acts as "Bob" and the larger as "Alice".
 	if hostID < peerID {
-		// We are "Bob" - create session with our DH key pair
-		dhKeyPair, errGenKey := generateDHKeyPair()
-		if errGenKey != nil {
-			return fmt.Errorf("failed to generate DH key pair: %w", errGenKey)
+		// We are "Bob": create session with our new ephemeral DH key pair.
+		ourDHKeyPair, err = generateDHKeyPair()
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate DH key pair: %w", err)
 		}
 
 		session, err = doubleratchet.New(
 			[]byte(sessionID),
 			doubleratchet.Key(sharedSecret[:]),
-			dhKeyPair,
+			ourDHKeyPair,
 			sm.storage,
 		)
 	} else {
-		// We are "Alice" - create session with their public key
+		// We are "Alice": create session with their ephemeral public key.
 		session, err = doubleratchet.NewWithRemoteKey(
 			[]byte(sessionID),
 			doubleratchet.Key(sharedSecret[:]),
-			doubleratchet.Key(theirPublicKey[:]),
+			doubleratchet.Key(theirEphemeralPublicKey[:]),
 			sm.storage,
 		)
 	}
 
 	if err != nil {
-		return fmt.Errorf("failed to create double ratchet session: %w", err)
+		return nil, fmt.Errorf("failed to create double ratchet session: %w", err)
 	}
 
 	sm.sessions[peerID] = session
 	log.Printf("Secure session established with peer %s (role: %s)", peerID, map[bool]string{true: "Bob", false: "Alice"}[hostID < peerID])
-	return nil
+
+	// Return the key pair we generated if we are "Bob".
+	return ourDHKeyPair, nil
 }
 
 // GetSession returns a session for a peer (thread-safe)
