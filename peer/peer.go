@@ -31,7 +31,6 @@ func InitPeerHost(peerPrivKey crypto.PrivKey) (*PeerInfo, error) {
 
 	// TODO: configure ip and port for listen address
 	h, err := libp2p.New(
-		libp2p.NoListenAddrs,
 		libp2p.Identity(peerPrivKey),
 		libp2p.EnableHolePunching(),
 		libp2p.NATPortMap(),
