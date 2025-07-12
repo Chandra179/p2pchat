@@ -33,24 +33,24 @@ func (sh *MessageHandler) HandleStream(s network.Stream) {
 	var msg PrivateMessage
 	decoder := json.NewDecoder(s)
 	if err := decoder.Decode(&msg); err != nil {
-		log.Printf("Error decoding secure message: %v", err)
+		fmt.Printf("Error decoding secure message: %v", err)
 		return
 	}
 
 	peerID := s.Conn().RemotePeer()
-	log.Printf("Received %s message from peer %s", msg.Type, peerID)
+	fmt.Printf("Received %s message from peer %s", msg.Type, peerID)
 
 	switch msg.Type {
 	case "key_exchange":
 		if err := sh.handleKeyExchange(peerID, msg); err != nil {
-			log.Printf("Failed to handle key exchange: %v", err)
+			fmt.Printf("Failed to handle key exchange: %v", err)
 		}
 	case "encrypted_message":
 		if err := sh.handleEncryptedMessage(peerID, msg); err != nil {
-			log.Printf("Failed to handle encrypted message: %v", err)
+			fmt.Printf("Failed to handle encrypted message: %v", err)
 		}
 	default:
-		log.Printf("Unknown message type: %s", msg.Type)
+		fmt.Printf("Unknown message type: %s", msg.Type)
 	}
 }
 

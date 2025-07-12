@@ -79,7 +79,7 @@ func (ms *MessageSender) sendMessage(peerID peer.ID, msg PrivateMessage) error {
 	defer cancel()
 
 	stream, err := ms.host.NewStream(
-		network.WithAllowLimitedConn(ctx, "secure-chat"),
+		network.WithAllowLimitedConn(ctx, "private-chat"),
 		peerID,
 		"/secure-chat/1.0.0",
 	)
