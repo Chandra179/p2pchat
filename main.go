@@ -161,14 +161,6 @@ func (cli *CLIManager) handleSend(args []string) {
 	err = cli.peer.PrivateChat.SendMessage(decodedPeerID, msg)
 	if err != nil {
 		fmt.Printf("Failed to send message to peer %s: %v\n", targetPeerIDStr, err)
-
-		// Optionally, try with retry logic
-		fmt.Println("Retrying with retry logic...")
-		err = cli.peer.PrivateChat.SendMessageWithRetry(decodedPeerID, msg, 3)
-		if err != nil {
-			fmt.Printf("Failed to send message after retries: %v\n", err)
-			return
-		}
 	}
 
 	fmt.Printf("Message sent successfully to peer %s\n", targetPeerIDStr)

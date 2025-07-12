@@ -33,29 +33,35 @@ func (sh *MessageHandler) HandleStream(s network.Stream) {
 	var msg PrivateMessage
 	decoder := json.NewDecoder(s)
 	if err := decoder.Decode(&msg); err != nil {
-		fmt.Printf("Error decoding secure message: %v", err)
+		fmt.Printf("Error decoding secure message: %v\n", err)
 		return
 	}
 
 	peerID := s.Conn().RemotePeer()
-	fmt.Printf("Received %s message from peer %s", msg.Type, peerID)
+	fmt.Printf("Received %s message from peer %s\n", msg.Type, peerID)
 
 	switch msg.Type {
 	case "key_exchange":
 		if err := sh.handleKeyExchange(peerID, msg); err != nil {
-			fmt.Printf("Failed to handle key exchange: %v", err)
+			fmt.Printf("Failed to handle key exchange: %v\n", err)
 		}
 	case "encrypted_message":
 		if err := sh.handleEncryptedMessage(peerID, msg); err != nil {
-			fmt.Printf("Failed to handle encrypted message: %v", err)
+			fmt.Printf("Failed to handle encrypted message: %v\n", err)
 		}
 	default:
-		fmt.Printf("Unknown message type: %s", msg.Type)
+		fmt.Printf("Unknown message type: %s\n", msg.Type)
 	}
 }
 
 // handleKeyExchange processes key exchange messages
 func (sh *MessageHandler) handleKeyExchange(peerID peer.ID, msg PrivateMessage) error {
+	// Skip if we already have a session
+	if sh.sessionManager.HasSession(peerID) {
+		log.Printf("Session already exists with peer %s, ignoring key exchange", peerID)
+		return nil
+	}
+
 	// Generate our key pair if we don't have one for this peer
 	if _, exists := sh.sessionManager.GetKeyPair(peerID); !exists {
 		if _, err := sh.sessionManager.GenerateAndStoreKeyPair(peerID); err != nil {
@@ -78,15 +84,16 @@ func (sh *MessageHandler) handleKeyExchange(peerID peer.ID, msg PrivateMessage) 
 		return fmt.Errorf("failed to compute shared secret: %w", err)
 	}
 
-	// Determine if we're initiator or responder
-	isInitiator := string(msg.Payload) != "key_exchange_init"
+	// Determine initiator/responder roles based on peer ID comparison
+	// This ensures both peers agree on who is the initiator
+	isInitiator := sh.hostID < peerID
 
 	// Create the session
 	if err := sh.sessionManager.CreateSession(sh.hostID, peerID, sharedSecret, theirPublicKey, isInitiator); err != nil {
 		return fmt.Errorf("failed to create session: %w", err)
 	}
 
-	// If we're the responder, send our public key back
+	// If we received a key_exchange_init and don't have a session, send our response
 	if string(msg.Payload) == "key_exchange_init" {
 		if err := sh.messageSender.SendKeyExchange(peerID, "key_exchange_response"); err != nil {
 			log.Printf("Failed to send key exchange response: %v", err)
