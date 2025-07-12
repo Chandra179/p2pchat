@@ -6,7 +6,7 @@ import (
 	"golang.org/x/crypto/curve25519"
 )
 
-// generateKeyPair (for initial key-exchange) with automatic clamping
+// generateKeyPair creates a new X25519 key pair (with proper clamping)
 func generateKeyPair() (*KeyPair, error) {
 	priv := make([]byte, 32)
 	if _, err := rand.Read(priv); err != nil {
@@ -16,14 +16,13 @@ func generateKeyPair() (*KeyPair, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	var privArr, pubArr [32]byte
 	copy(privArr[:], priv)
 	copy(pubArr[:], pub)
 	return &KeyPair{PrivateKey: privArr, PublicKey: pubArr}, nil
 }
 
-// generateDHKeyPair (for the ratchet’s ephemeral DH) — **also** use X25519!
+// generateDHKeyPair creates the ratchet’s ephemeral X25519 key pair (also clamped)
 func generateDHKeyPair() (*X25519KeyPair, error) {
 	priv := make([]byte, 32)
 	if _, err := rand.Read(priv); err != nil {
@@ -33,14 +32,13 @@ func generateDHKeyPair() (*X25519KeyPair, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	var privArr, pubArr [32]byte
 	copy(privArr[:], priv)
 	copy(pubArr[:], pub)
 	return &X25519KeyPair{privateKey: privArr, publicKey: pubArr}, nil
 }
 
-// computeSharedSecret — again X25519 for BOTH peers
+// computeSharedSecret derives the shared 32‑byte secret (clamped on both sides)
 func computeSharedSecret(privateKey, publicKey [32]byte) ([32]byte, error) {
 	shared, err := curve25519.X25519(privateKey[:], publicKey[:])
 	if err != nil {
