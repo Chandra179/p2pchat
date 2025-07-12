@@ -27,20 +27,35 @@ func NewSessionManager() *SessionManager {
 }
 
 // CreateSession creates a new secure session with a peer
-func (sm *SessionManager) CreateSession(hostID, peerID peer.ID, sharedSecret [32]byte, theirPublicKey [32]byte, isInitiator bool) error {
+func (sm *SessionManager) CreateSession(hostID, peerID peer.ID, sharedSecret [32]byte, theirPublicKey [32]byte) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	// Create session ID using both peer IDs
-	sessionID := fmt.Sprintf("%s-%s", hostID, peerID)
+	// Check if session already exists
+	if _, exists := sm.sessions[peerID]; exists {
+		log.Printf("Session already exists with peer %s", peerID)
+		return nil
+	}
+
+	// Create deterministic session ID - always use the same order
+	var sessionID string
+	if hostID < peerID {
+		sessionID = fmt.Sprintf("%s-%s", hostID, peerID)
+	} else {
+		sessionID = fmt.Sprintf("%s-%s", peerID, hostID)
+	}
+
 	var session doubleratchet.Session
 	var err error
 
-	if isInitiator {
-		// We are the initiator - create session with our key pair
+	// The key insight: the peer with the smaller ID always acts as "Bob" (uses New())
+	// and the peer with the larger ID always acts as "Alice" (uses NewWithRemoteKey())
+	// This ensures both peers create compatible sessions
+	if hostID < peerID {
+		// We are "Bob" - create session with our DH key pair
 		dhKeyPair, errGenKey := generateDHKeyPair()
 		if errGenKey != nil {
-			return fmt.Errorf("failed to generate DH key pair: %w", err)
+			return fmt.Errorf("failed to generate DH key pair: %w", errGenKey)
 		}
 
 		session, err = doubleratchet.New(
@@ -50,7 +65,7 @@ func (sm *SessionManager) CreateSession(hostID, peerID peer.ID, sharedSecret [32
 			sm.storage,
 		)
 	} else {
-		// We are the responder - create session with their public key
+		// We are "Alice" - create session with their public key
 		session, err = doubleratchet.NewWithRemoteKey(
 			[]byte(sessionID),
 			doubleratchet.Key(sharedSecret[:]),
@@ -64,7 +79,7 @@ func (sm *SessionManager) CreateSession(hostID, peerID peer.ID, sharedSecret [32
 	}
 
 	sm.sessions[peerID] = session
-	log.Printf("Secure session established with peer %s", peerID)
+	log.Printf("Secure session established with peer %s (role: %s)", peerID, map[bool]string{true: "Bob", false: "Alice"}[hostID < peerID])
 	return nil
 }
 

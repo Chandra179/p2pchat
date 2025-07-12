@@ -84,12 +84,8 @@ func (sh *MessageHandler) handleKeyExchange(peerID peer.ID, msg PrivateMessage) 
 		return fmt.Errorf("failed to compute shared secret: %w", err)
 	}
 
-	// Determine initiator/responder roles based on peer ID comparison
-	// This ensures both peers agree on who is the initiator
-	isInitiator := sh.hostID < peerID
-
-	// Create the session
-	if err := sh.sessionManager.CreateSession(sh.hostID, peerID, sharedSecret, theirPublicKey, isInitiator); err != nil {
+	// Create the session with deterministic roles
+	if err := sh.sessionManager.CreateSession(sh.hostID, peerID, sharedSecret, theirPublicKey); err != nil {
 		return fmt.Errorf("failed to create session: %w", err)
 	}
 
