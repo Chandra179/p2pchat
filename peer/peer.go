@@ -42,6 +42,7 @@ func InitPeerHost(peerPrivKey crypto.PrivKey) (*PeerInfo, error) {
 	}
 	pc := privatechat.NewPrivateChat(h)
 	p := PeerInfo{Host: h, PeerStore: ps, PrivateChat: *pc}
+	p.PrivateChat.Init()
 	fmt.Println("Peer ID:", h.ID())
 
 	return &p, nil
