@@ -23,7 +23,7 @@ type PeerStore struct {
 }
 
 // NewPeerStore creates a new persistent peer store
-func NewPeerStore(dbPath string) (*PeerStore, error) {
+func NewPeerStore() (*PeerStore, error) {
 	memStore, err := pstoremem.NewPeerstore()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create memory peerstore: %w", err)

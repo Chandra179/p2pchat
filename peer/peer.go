@@ -24,7 +24,7 @@ type PeerInfo struct {
 }
 
 func InitPeerHost(peerPrivKey crypto.PrivKey) (*PeerInfo, error) {
-	ps, err := NewPeerStore("./peers_db")
+	ps, err := NewPeerStore()
 	if err != nil {
 		log.Fatal(err)
 	}
