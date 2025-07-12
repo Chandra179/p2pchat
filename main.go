@@ -12,6 +12,7 @@ import (
 	mypeer "p2p/peer"
 	"p2p/relay"
 	"strings"
+	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
 )
@@ -132,11 +133,43 @@ func (cli *CLIManager) handleSend(args []string) {
 		return
 	}
 
-	if err := cli.peer.SendSimple(decodedPeerID, msg); err != nil {
-		fmt.Printf("Failed to send message: %v\n", err)
-	} else {
-		fmt.Printf("Message sent to %s: %s\n", targetPeerIDStr, msg)
+	// Check if we have an active session with this peer
+	if !cli.peer.PrivateChat.HasSession(decodedPeerID) {
+		fmt.Printf("No active session with peer %s. Initiating chat...\n", targetPeerIDStr)
+
+		// Initiate a secure chat session first
+		err = cli.peer.PrivateChat.InitiateChat(decodedPeerID)
+		if err != nil {
+			fmt.Printf("Failed to initiate chat with peer %s: %v\n", targetPeerIDStr, err)
+			return
+		}
+
+		// Give some time for the key exchange to complete
+		fmt.Println("Key exchange initiated. Waiting for session establishment...")
+		time.Sleep(2 * time.Second)
+
+		// Check again if session was established
+		if !cli.peer.PrivateChat.HasSession(decodedPeerID) {
+			fmt.Printf("Failed to establish session with peer %s\n", targetPeerIDStr)
+			return
+		}
 	}
+
+	// Send the encrypted message
+	err = cli.peer.PrivateChat.SendMessage(decodedPeerID, msg)
+	if err != nil {
+		fmt.Printf("Failed to send message to peer %s: %v\n", targetPeerIDStr, err)
+
+		// Optionally, try with retry logic
+		fmt.Println("Retrying with retry logic...")
+		err = cli.peer.PrivateChat.SendMessageWithRetry(decodedPeerID, msg, 3)
+		if err != nil {
+			fmt.Printf("Failed to send message after retries: %v\n", err)
+			return
+		}
+	}
+
+	fmt.Printf("Message sent successfully to peer %s\n", targetPeerIDStr)
 }
 
 func (cli *CLIManager) handleGenkey() {
