@@ -83,6 +83,8 @@ func (cli *CLIManager) handleConnect(args []string) {
 		fmt.Printf("Failed to connect to peer: %v\n", err)
 		return
 	}
+	protocols, _ := cli.peer.Host.Peerstore().GetProtocols(peerInfo.ID)
+	fmt.Println("Remote supports:", protocols)
 	fmt.Printf("Successfully connected to peer: %s\n", idStr)
 }
 
