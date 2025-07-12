@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"p2p/privatechat"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -16,11 +15,10 @@ import (
 )
 
 type PeerInfo struct {
-	RoutedHost  rhost.RoutedHost
-	PeerID      peer.ID
-	Host        host.Host
-	PeerStore   *PeerStore
-	PrivateChat privatechat.PrivateChat
+	RoutedHost rhost.RoutedHost
+	PeerID     peer.ID
+	Host       host.Host
+	PeerStore  *PeerStore
 }
 
 func InitPeerHost(peerPrivKey crypto.PrivKey) (*PeerInfo, error) {
@@ -40,9 +38,8 @@ func InitPeerHost(peerPrivKey crypto.PrivKey) (*PeerInfo, error) {
 		log.Printf("Failed to create node: %v", err)
 		return nil, err
 	}
-	pc := privatechat.NewPrivateChat(h)
-	p := PeerInfo{Host: h, PeerStore: ps, PrivateChat: *pc}
-	p.PrivateChat.Init()
+	p := PeerInfo{Host: h, PeerStore: ps}
+	p.ChatHandler()
 	fmt.Println("Local protocols:", h.Mux().Protocols())
 	fmt.Println("Peer ID:", h.ID())
 
