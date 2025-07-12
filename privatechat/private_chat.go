@@ -28,7 +28,7 @@ func NewPrivateChat(host host.Host) *PrivateChat {
 }
 
 // Init initializes the secure chat protocol
-func (sc *PrivateChat) Init() {
+func (sc *PrivateChat) init() {
 	sc.host.SetStreamHandler("/secure-chat/1.0.0", sc.streamHandler.HandleStream)
 }
 
