@@ -3,11 +3,11 @@ module p2p
 go 1.24.3
 
 require (
-	filippo.io/edwards25519 v1.1.0
 	github.com/joho/godotenv v1.5.1
 	github.com/libp2p/go-libp2p v0.42.0
 	github.com/libp2p/go-libp2p-kad-dht v0.33.1
 	github.com/multiformats/go-multiaddr v0.16.0
+	github.com/status-im/doubleratchet v3.0.0+incompatible
 	golang.org/x/crypto v0.39.0
 )
 
