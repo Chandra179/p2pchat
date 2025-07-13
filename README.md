@@ -7,13 +7,10 @@ A decentralized peer-to-peer chat application built with libp2p that supports di
 ## Features
 
 - **Direct P2P Messaging**: Send messages directly between peers using custom protocol
-- **Relay Support**: Fallback to relay connections when direct connections fail (NAT traversal)
 - **DHT Discovery**: Discover peers using Kademlia DHT with automatic bootstrap
 - **NAT Traversal**: Built-in hole punching and NAT port mapping for firewall bypass
 - **Circuit Relay**: Support for relay nodes to facilitate connections between NAT'd peers
 - **Peer Store**: In-memory peer management with address caching
-- **CLI Interface**: Interactive command-line interface for peer operations
-- **Auto-Reconnection**: Robust connection handling with fallback mechanisms
 
 ## Configuration
 
@@ -69,9 +66,6 @@ Once running in peer mode, you can use the following commands:
 
 ### Messaging
 - `send <peer_id> <message>` - Send a message to a connected peer
-
-### System
-- `exit` - Exit the application
 
 ## Example Workflow
 
