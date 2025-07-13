@@ -15,16 +15,6 @@ A decentralized peer-to-peer chat application built with libp2p that supports di
 - **CLI Interface**: Interactive command-line interface for peer operations
 - **Auto-Reconnection**: Robust connection handling with fallback mechanisms
 
-## Architecture
-
-The application consists of several key components:
-
-- **Peer Management**: Core peer functionality and host initialization
-- **Chat Protocol**: Custom protocol for peer-to-peer messaging (`/private-chat/1.0.0`)
-- **DHT Integration**: Kademlia DHT for peer discovery and routing
-- **Relay System**: Circuit relay for NAT traversal
-- **Peer Store**: In-memory storage for discovered peers
-
 ## Configuration
 
 ### Environment Variables
