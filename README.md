@@ -1,6 +1,6 @@
 # P2P Chat Application
 
-A decentralized peer-to-peer chat application built with libp2p that supports direct connections, relay connections, and DHT-based peer discovery. This application demonstrates advanced P2P networking concepts including NAT traversal, distributed hash tables, and circuit relay protocols.
+A decentralized peer-to-peer chat application built with libp2p that supports direct connections, relay connections, and DHT-based peer discovery.
 
 ![Screenshot](./test.png)
 
