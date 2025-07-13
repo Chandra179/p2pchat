@@ -4,20 +4,21 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
+const CHAT_PROTOCOL = "/private-chat/1.0.0"
+
 func (p *PeerInfo) ChatHandler() {
-	p.Host.SetStreamHandler("/customprotocol", func(s network.Stream) {
+	p.Host.SetStreamHandler(CHAT_PROTOCOL, func(s network.Stream) {
 		defer s.Close()
 		var msg string
 		decoder := json.NewDecoder(s)
 		if err := decoder.Decode(&msg); err != nil {
-			log.Printf("Error decoding message: %v", err)
+			fmt.Printf("Failed to receive msg: %v\n", err)
 			return
 		}
 		fmt.Println(msg)
@@ -30,10 +31,10 @@ func (p *PeerInfo) SendSimple(targetPeerID peer.ID, text string) error {
 	stream, err := p.Host.NewStream(
 		network.WithAllowLimitedConn(ctx, "reason"),
 		targetPeerID,
-		"/customprotocol",
+		CHAT_PROTOCOL,
 	)
 	if err != nil {
-		fmt.Println("err creating stream")
+		fmt.Printf("Failed to send msg: %v\n", err)
 		return err
 	}
 	defer stream.Close()

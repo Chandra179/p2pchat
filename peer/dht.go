@@ -7,7 +7,6 @@ import (
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/core/routing"
 	discovery "github.com/libp2p/go-libp2p/p2p/discovery/routing"
 )
 
@@ -30,7 +29,6 @@ func (p *PeerInfo) InitDHT(ctx context.Context, h host.Host) (*DHTManager, error
 			fmt.Println("Failed to connect to bootstrap peer:", peerinfo.ID, err)
 			continue
 		}
-		p.PeerStore.AddTempPeer(peerinfo.ID, peerinfo.Addrs)
 	}
 	if err := kademliaDHT.Bootstrap(ctx); err != nil {
 		return nil, err
@@ -58,9 +56,4 @@ func (d *DHTManager) FindPeers(ctx context.Context, rendezvous string) (<-chan p
 		return nil, err
 	}
 	return peerChan, nil
-}
-
-// Expose routing interface to host options
-func (d *DHTManager) Routing() routing.Routing {
-	return d.DHT
 }

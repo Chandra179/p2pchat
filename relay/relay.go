@@ -11,11 +11,10 @@ import (
 )
 
 func RunRelay(cfg *config.Config) {
-	// TODO: the port could be different
 	listenAddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%s", cfg.RelayPort)
 	advertiseAddr := fmt.Sprintf("/ip4/%s/tcp/%s", cfg.RelayIP, cfg.RelayPort)
 
-	relay1, err := libp2p.New(
+	r, err := libp2p.New(
 		libp2p.Identity(cfg.RelayPrivKey),
 		libp2p.ListenAddrStrings(listenAddr),
 		libp2p.AddrsFactory(func(addrs []ma.Multiaddr) []ma.Multiaddr {
@@ -23,20 +22,19 @@ func RunRelay(cfg *config.Config) {
 			return []ma.Multiaddr{adv}
 		}),
 		libp2p.EnableRelayService(),
-		// libp2p.EnableNATService(),
 	)
 	if err != nil {
 		fmt.Printf("Failed to create relay: %v\n", err)
 		return
 	}
-	_, err = relay.New(relay1)
+	_, err = relay.New(r)
 	if err != nil {
 		fmt.Printf("Failed to instantiate the relay: %v\n", err)
 		return
 	}
 	relayinfo := peer.AddrInfo{
-		ID:    relay1.ID(),
-		Addrs: relay1.Addrs(),
+		ID:    r.ID(),
+		Addrs: r.Addrs(),
 	}
 	fmt.Println(relayinfo.ID.String())
 	fmt.Println(relayinfo.Addrs)

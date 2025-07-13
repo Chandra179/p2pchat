@@ -9,7 +9,6 @@ import (
 )
 
 func (p *PeerInfo) Connect(ctx context.Context, peerInfo peer.AddrInfo, relayID peer.ID) error {
-	// Try direct connection first
 	if err := p.Host.Connect(ctx, peerInfo); err == nil {
 		fmt.Println("success direct connection")
 		return nil

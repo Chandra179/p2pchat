@@ -22,12 +22,13 @@ type PeerInfo struct {
 }
 
 func InitPeerHost(peerPrivKey crypto.PrivKey) (*PeerInfo, error) {
-	ps, err := NewPeerStore("./peers_db")
-	if err != nil {
-		log.Fatal(err)
+	if peerPrivKey == nil {
+		return nil, fmt.Errorf("private key is required")
 	}
-	defer ps.Close()
-
+	ps, err := NewPeerStore()
+	if err != nil {
+		return nil, err
+	}
 	// TODO: configure ip and port for listen address
 	h, err := libp2p.New(
 		libp2p.Identity(peerPrivKey),
@@ -36,43 +37,50 @@ func InitPeerHost(peerPrivKey crypto.PrivKey) (*PeerInfo, error) {
 		libp2p.EnableRelay(),
 	)
 	if err != nil {
-		log.Printf("Failed to create node: %v", err)
-		return nil, err
+		ps.Close()
+		return nil, fmt.Errorf("failed to create libp2p host: %w", err)
 	}
 	p := PeerInfo{Host: h, PeerStore: ps}
-	fmt.Println("Peer ID:", h.ID())
 	p.ChatHandler()
+	log.Printf("Peer initialized - ID: %s, Protocols: %v", h.ID(), h.Mux().Protocols())
 
 	return &p, nil
 }
 
-func (p *PeerInfo) ConnectAndReserveRelay(relayID peer.ID, relayIP string, relayPort string) {
+func (p *PeerInfo) ConnectAndReserveRelay(relayID peer.ID, relayIP string, relayPort string) error {
+	if relayIP == "" || relayPort == "" {
+		return fmt.Errorf("relay IP and port are required")
+	}
 	addr, err := ma.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%s", relayIP, relayPort))
 	if err != nil {
-		log.Printf("Failed to parse relay multiaddr: %v", err)
-		return
+		return fmt.Errorf("invalid relay address: %w", err)
 	}
 	addrInfo := peer.AddrInfo{
 		ID:    relayID,
 		Addrs: []ma.Multiaddr{addr},
 	}
 	if err := p.Host.Connect(context.Background(), addrInfo); err != nil {
-		log.Printf("Failed too connect to relay: %v", err)
-		return
+		return fmt.Errorf("failed to connect to relay: %w", err)
 	}
 	_, err = client.Reserve(context.Background(), p.Host, addrInfo)
 	if err != nil {
-		log.Printf("Failed to reserved relay %v", err)
-		return
+		return fmt.Errorf("failed to reserve relay: %w", err)
 	}
-	fmt.Println("success connect to relay")
+	log.Printf("Successfully connected to relay: %s", relayID)
+	return nil
 }
 
-func (p *PeerInfo) Ping(id peer.ID, addr string) {
+func (p *PeerInfo) Ping(id peer.ID, addr string) error {
+	if addr == "" {
+		return fmt.Errorf("address is required")
+	}
+
 	maddr, err := ma.NewMultiaddr(addr)
 	if err != nil {
-		log.Printf("Invalid multiaddr: %v", err)
-		return
+		return fmt.Errorf("invalid multiaddr: %w", err)
 	}
-	fmt.Println(p.Host.Network().CanDial(id, maddr))
+
+	canDial := p.Host.Network().CanDial(id, maddr)
+	log.Printf("Can dial %s at %s: %v", id, addr, canDial)
+	return nil
 }

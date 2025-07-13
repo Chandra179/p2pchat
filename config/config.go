@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"p2p/cryptoutils"
 
@@ -14,17 +13,17 @@ import (
 type Config struct {
 	PeerPort    string
 	PeerID      string
-	PeerPrivKey crypto.PrivKey
+	PeerPrivKey crypto.PrivKey // Will be used as peer ID
 	//
 	RelayPort    string
 	RelayID      peer.ID
-	RelayPrivKey crypto.PrivKey
+	RelayPrivKey crypto.PrivKey // WIll be used as peer ID
 	RelayIP      string
 }
 
 func LoadConfig() (*Config, error) {
 	if err := godotenv.Load(".env"); err != nil {
-		log.Printf("Failed to load .env: %v", err)
+		fmt.Printf("Failed to load .env: %v", err)
 	}
 	peerPrivKey, err := cryptoutils.DecodeBase64Key(os.Getenv("PEER_ID"))
 	if err != nil {

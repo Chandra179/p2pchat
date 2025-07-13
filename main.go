@@ -80,9 +80,11 @@ func (cli *CLIManager) handleConnect(args []string) {
 
 	if err := cli.peer.Connect(context.Background(), peerInfo, cli.config.RelayID); err != nil {
 		fmt.Printf("Failed to connect to peer: %v\n", err)
-	} else {
-		fmt.Printf("Successfully connected to peer: %s\n", idStr)
+		return
 	}
+	protocols, _ := cli.peer.Host.Peerstore().GetProtocols(peerInfo.ID)
+	fmt.Println("Remote supports:", protocols)
+	fmt.Printf("Successfully connected to peer: %s\n", idStr)
 }
 
 func (cli *CLIManager) handleDHT() {
@@ -92,13 +94,13 @@ func (cli *CLIManager) handleDHT() {
 		return
 	}
 
-	err = dm.AdvertiseHost(context.Background(), "/customprotocol")
+	err = dm.AdvertiseHost(context.Background(), mypeer.CHAT_PROTOCOL)
 	if err != nil {
 		fmt.Printf("Failed to advertise host: %v\n", err)
 		return
 	}
 
-	peers, err := dm.FindPeers(context.Background(), "/customprotocol")
+	peers, err := dm.FindPeers(context.Background(), mypeer.CHAT_PROTOCOL)
 	if err != nil {
 		fmt.Printf("Failed to find peers: %v\n", err)
 		return
@@ -110,8 +112,7 @@ func (cli *CLIManager) handleDHT() {
 		if peer.ID == cli.peer.Host.ID() {
 			continue // skip self
 		}
-		fmt.Printf("Found peer: %s\n", peer.ID)
-		fmt.Printf("  Addrs: %v\n", peer.Addrs)
+		cli.peer.PeerStore.AddPeer(peer.ID, peer.Addrs)
 		peerCount++
 	}
 
@@ -133,10 +134,9 @@ func (cli *CLIManager) handleSend(args []string) {
 		return
 	}
 
-	if err := cli.peer.SendSimple(decodedPeerID, msg); err != nil {
-		fmt.Printf("Failed to send message: %v\n", err)
-	} else {
-		fmt.Printf("Message sent to %s: %s\n", targetPeerIDStr, msg)
+	if err = cli.peer.SendSimple(decodedPeerID, msg); err != nil {
+		fmt.Println("error sending message: ", err)
+		return
 	}
 }
 

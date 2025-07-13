@@ -27,3 +27,5 @@ go.sum
 .env
 env
 ins.sh
+peers_db
+/peers_db
