@@ -94,13 +94,13 @@ func (cli *CLIManager) handleDHT() {
 		return
 	}
 
-	err = dm.AdvertiseHost(context.Background(), "/customprotocol")
+	err = dm.AdvertiseHost(context.Background(), mypeer.CHAT_PROTOCOL)
 	if err != nil {
 		fmt.Printf("Failed to advertise host: %v\n", err)
 		return
 	}
 
-	peers, err := dm.FindPeers(context.Background(), "/customprotocol")
+	peers, err := dm.FindPeers(context.Background(), mypeer.CHAT_PROTOCOL)
 	if err != nil {
 		fmt.Printf("Failed to find peers: %v\n", err)
 		return
@@ -135,7 +135,7 @@ func (cli *CLIManager) handleSend(args []string) {
 	}
 
 	if err = cli.peer.SendSimple(decodedPeerID, msg); err != nil {
-		fmt.Printf("error sending message: ", err)
+		fmt.Println("error sending message: ", err)
 		return
 	}
 }

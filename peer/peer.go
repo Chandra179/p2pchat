@@ -24,7 +24,7 @@ type PeerInfo struct {
 func InitPeerHost(peerPrivKey crypto.PrivKey) (*PeerInfo, error) {
 	ps, err := NewPeerStore()
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	// TODO: configure ip and port for listen address
@@ -35,7 +35,7 @@ func InitPeerHost(peerPrivKey crypto.PrivKey) (*PeerInfo, error) {
 		libp2p.EnableRelay(),
 	)
 	if err != nil {
-		log.Printf("Failed to create node: %v", err)
+		fmt.Printf("Failed to create node: %v", err)
 		return nil, err
 	}
 	p := PeerInfo{Host: h, PeerStore: ps}
@@ -49,7 +49,7 @@ func InitPeerHost(peerPrivKey crypto.PrivKey) (*PeerInfo, error) {
 func (p *PeerInfo) ConnectAndReserveRelay(relayID peer.ID, relayIP string, relayPort string) {
 	addr, err := ma.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%s", relayIP, relayPort))
 	if err != nil {
-		log.Printf("Failed to parse relay multiaddr: %v", err)
+		fmt.Printf("Failed to parse relay multiaddr: %v", err)
 		return
 	}
 	addrInfo := peer.AddrInfo{
@@ -57,12 +57,12 @@ func (p *PeerInfo) ConnectAndReserveRelay(relayID peer.ID, relayIP string, relay
 		Addrs: []ma.Multiaddr{addr},
 	}
 	if err := p.Host.Connect(context.Background(), addrInfo); err != nil {
-		log.Printf("Failed too connect to relay: %v", err)
+		fmt.Printf("Failed too connect to relay: %v", err)
 		return
 	}
 	_, err = client.Reserve(context.Background(), p.Host, addrInfo)
 	if err != nil {
-		log.Printf("Failed to reserved relay %v", err)
+		fmt.Printf("Failed to reserved relay %v", err)
 		return
 	}
 	fmt.Println("success connect to relay")

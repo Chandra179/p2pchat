@@ -7,8 +7,6 @@ require (
 	github.com/libp2p/go-libp2p v0.42.0
 	github.com/libp2p/go-libp2p-kad-dht v0.33.1
 	github.com/multiformats/go-multiaddr v0.16.0
-	github.com/status-im/doubleratchet v3.0.0+incompatible
-	golang.org/x/crypto v0.39.0
 )
 
 require (
@@ -108,6 +106,7 @@ require (
 	go.uber.org/mock v0.5.2 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
+	golang.org/x/crypto v0.39.0 // indirect
 	golang.org/x/exp v0.0.0-20250606033433-dcc06ee1d476 // indirect
 	golang.org/x/mod v0.25.0 // indirect
 	golang.org/x/net v0.41.0 // indirect

@@ -7,7 +7,6 @@ import (
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/core/routing"
 	discovery "github.com/libp2p/go-libp2p/p2p/discovery/routing"
 )
 
@@ -57,9 +56,4 @@ func (d *DHTManager) FindPeers(ctx context.Context, rendezvous string) (<-chan p
 		return nil, err
 	}
 	return peerChan, nil
-}
-
-// Expose routing interface to host options
-func (d *DHTManager) Routing() routing.Routing {
-	return d.DHT
 }
