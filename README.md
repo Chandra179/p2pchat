@@ -1,6 +1,6 @@
 # P2P Chat Application
 
-A decentralized peer-to-peer chat application built with libp2p that supports direct connections, relay connections, and DHT-based peer discovery.
+A decentralized peer-to-peer chat application built with libp2p that supports direct connections, relay connections, and DHT-based peer discovery. Docs: https://nothin.gitbook.io/computing/p2p-chat
 
 ![Screenshot](./test.png)
 
